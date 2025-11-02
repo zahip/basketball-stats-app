@@ -10,8 +10,15 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:reset": "prisma migrate reset",
     "db:seed": "tsx src/lib/seed.ts",
-    "test": "vitest"
+    "db:studio": "prisma studio",
+    "db:status": "prisma migrate status",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:db": "tsx src/lib/test-db.ts",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "hono": "^4.0.0",

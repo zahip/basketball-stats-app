@@ -49,7 +49,7 @@ export const queueEvent = async (event: Omit<PendingEvent, 'id' | 'retryCount'>)
   await db.pendingEvents.add({
     ...event,
     retryCount: 0
-  })
+  } as PendingEvent)
 }
 
 export const getPendingEvents = async (gameId?: string) => {

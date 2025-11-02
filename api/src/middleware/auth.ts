@@ -1,7 +1,7 @@
 import { Context, Next } from 'hono'
 import { supabase } from '@/lib/supabase'
 
-export const authMiddleware = async (c: Context, next: Next) => {
+export const authMiddleware = async (c: Context, next: Next): Promise<Response | void> => {
   const authHeader = c.req.header('Authorization')
   
   if (!authHeader?.startsWith('Bearer ')) {
@@ -27,7 +27,7 @@ export const authMiddleware = async (c: Context, next: Next) => {
 }
 
 // Optional auth middleware (user may or may not be authenticated)
-export const optionalAuthMiddleware = async (c: Context, next: Next) => {
+export const optionalAuthMiddleware = async (c: Context, next: Next): Promise<void> => {
   const authHeader = c.req.header('Authorization')
   
   if (authHeader?.startsWith('Bearer ')) {

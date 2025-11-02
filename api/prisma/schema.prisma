@@ -1,0 +1,152 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  season    String
+  createdAt DateTime @default(now())
+  players   Player[]
+  games     Game[]
+
+  @@map("teams")
+}
+
+model Player {
+  id        String  @id @default(cuid())
+  teamId    String
+  jersey    Int
+  firstName String
+  lastName  String
+  position  String?
+  active    Boolean @default(true)
+  team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, jersey])
+  @@map("players")
+}
+
+model Game {
+  id         String      @id @default(cuid())
+  teamId     String
+  opponent   String
+  date       DateTime
+  venue      String?
+  status     GameStatus  @default(PLANNED)
+  period     Int         @default(1)
+  clockSec   Int         @default(600) // 10:00 min by default
+  ourScore   Int         @default(0)
+  oppScore   Int         @default(0)
+  createdAt  DateTime    @default(now())
+  team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  events     GameEvent[]
+
+  @@map("games")
+}
+
+enum GameStatus {
+  PLANNED
+  LIVE
+  FINAL
+}
+
+enum EventType {
+  SHOT_2_MADE
+  SHOT_2_MISS
+  SHOT_3_MADE
+  SHOT_3_MISS
+  FT_MADE
+  FT_MISS
+  REB_O
+  REB_D
+  AST
+  STL
+  BLK
+  TOV
+  FOUL
+  SUB_IN
+  SUB_OUT
+  TIMEOUT
+  START_PERIOD
+  END_PERIOD
+}
+
+model GameEvent {
+  id        String    @id @default(cuid())
+  gameId    String
+  tsServer  DateTime  @default(now())
+  period    Int
+  clockSec  Int       // time left when event was recorded
+  teamSide  TeamSide
+  playerId  String?
+  type      EventType
+  meta      Json?
+  ingestKey String    // for idempotency
+  game      Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@unique([gameId, ingestKey])
+  @@index([gameId, tsServer])
+  @@map("game_events")
+}
+
+enum TeamSide {
+  US
+  OPP
+}
+
+model BoxScorePlayer {
+  id        String @id @default(cuid())
+  gameId    String
+  playerId  String
+  minutes   Int    @default(0)
+  pts       Int    @default(0)
+  fgm2      Int    @default(0)
+  fga2      Int    @default(0)
+  fgm3      Int    @default(0)
+  fga3      Int    @default(0)
+  ftm       Int    @default(0)
+  fta       Int    @default(0)
+  oreb      Int    @default(0)
+  dreb      Int    @default(0)
+  ast       Int    @default(0)
+  stl       Int    @default(0)
+  blk       Int    @default(0)
+  tov       Int    @default(0)
+  pf        Int    @default(0)
+  plusMinus Int    @default(0)
+
+  @@unique([gameId, playerId])
+  @@map("boxscore_players")
+}
+
+model BoxScoreTeam {
+  id       String   @id @default(cuid())
+  gameId   String
+  teamSide TeamSide
+  pts      Int      @default(0)
+  fgm2     Int      @default(0)
+  fga2     Int      @default(0)
+  fgm3     Int      @default(0)
+  fga3     Int      @default(0)
+  ftm      Int      @default(0)
+  fta      Int      @default(0)
+  oreb     Int      @default(0)
+  dreb     Int      @default(0)
+  ast      Int      @default(0)
+  stl      Int      @default(0)
+  blk      Int      @default(0)
+  tov      Int      @default(0)
+  pf       Int      @default(0)
+
+  @@unique([gameId, teamSide])
+  @@map("boxscore_teams")
+}

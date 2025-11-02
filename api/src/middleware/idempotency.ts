@@ -4,7 +4,7 @@ import { Context, Next } from 'hono'
 // In production, use Redis or database
 const idempotencyStore = new Map<string, any>()
 
-export const idempotencyMiddleware = async (c: Context, next: Next) => {
+export const idempotencyMiddleware = async (c: Context, next: Next): Promise<Response | void> => {
   const idempotencyKey = c.req.header('X-Idempotency-Key')
   
   if (!idempotencyKey) {
