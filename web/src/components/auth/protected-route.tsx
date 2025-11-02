@@ -17,6 +17,15 @@ export function ProtectedRoute({
   fallback 
 }: ProtectedRouteProps) {
   const { user, role, loading, hasAccess, isAuthenticated } = useRequireAuth(requiredRole)
+  
+  console.log('ProtectedRoute Debug:', { 
+    user: user?.email, 
+    role, 
+    loading, 
+    hasAccess, 
+    isAuthenticated, 
+    requiredRole 
+  })
 
   if (loading) {
     return (

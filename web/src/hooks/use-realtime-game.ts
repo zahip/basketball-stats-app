@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Only create Supabase client if credentials are available
+const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
 interface GameState {
   id: string
@@ -42,7 +45,11 @@ export function useRealtimeGame(gameId: string) {
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
 
   useEffect(() => {
-    if (!gameId) return
+    if (!gameId || !supabase) {
+      // If no Supabase client, just set disconnected status
+      setConnectionStatus('disconnected')
+      return
+    }
 
     // Subscribe to game header updates
     const gameChannel = supabase

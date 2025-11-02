@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 
 export function Navigation() {
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { user, role, signOut } = useAuth()
   const { isCoach, isScorer, canEdit, canManage } = useRoleAccess()
 
   const handleSignOut = async () => {
@@ -65,10 +65,12 @@ export function Navigation() {
                 {/* User info */}
                 <div className="text-sm text-gray-700">
                   <span className="font-medium">{user.email}</span>
-                  {(isCoach || isScorer) && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-                      {isCoach ? 'Coach' : 'Scorer'}
-                    </span>
+                  {role && (
+                    <Link href="/auth/role-setup">
+                      <span className="ml-2 px-2 py-1 text-xs bg-primary/10 text-primary rounded-full hover:bg-primary/20 cursor-pointer">
+                        {role === 'coach' ? '👨‍💼 Coach' : role === 'scorer' ? '📝 Scorer' : '👀 Viewer'}
+                      </span>
+                    </Link>
                   )}
                 </div>
 

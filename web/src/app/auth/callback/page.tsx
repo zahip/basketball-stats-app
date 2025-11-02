@@ -19,8 +19,17 @@ export default function AuthCallback() {
         }
 
         if (data.session) {
-          // Successful authentication, redirect to games
-          router.push('/games')
+          // Check if user has a role set up
+          const userId = data.session.user.id
+          const storedRole = localStorage.getItem(`user_role_${userId}`)
+          
+          if (storedRole) {
+            // User has role, go to games
+            router.push('/games')
+          } else {
+            // New user, go to role setup
+            router.push('/auth/role-setup')
+          }
         } else {
           // No session, redirect to login
           router.push('/auth/login')

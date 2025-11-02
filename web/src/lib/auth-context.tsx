@@ -14,6 +14,7 @@ interface AuthContextType {
   loading: boolean
   signIn: (email: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
+  setUserRole: (role: UserRole) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -62,15 +63,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Determine user role based on email or metadata
+  // Get stored role or determine from email
   const getUserRole = (user: User): UserRole => {
-    // For now, simple role assignment based on email
-    // In production, this would come from user metadata or database
-    const email = user.email?.toLowerCase() || ''
+    // First check localStorage for stored role
+    const storedRole = localStorage.getItem(`user_role_${user.id}`)
+    if (storedRole && ['coach', 'scorer', 'viewer'].includes(storedRole)) {
+      return storedRole as UserRole
+    }
     
+    // Fallback to email-based detection
+    const email = user.email?.toLowerCase() || ''
     if (email.includes('coach')) return 'coach'
     if (email.includes('scorer')) return 'scorer'
+    
+    // Default role for new users
     return 'viewer'
+  }
+
+  // Function to update user role
+  const setUserRole = (newRole: UserRole) => {
+    if (user) {
+      localStorage.setItem(`user_role_${user.id}`, newRole)
+      setRole(newRole)
+    }
   }
 
   const signIn = async (email: string) => {
@@ -95,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signIn,
     signOut,
+    setUserRole,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -36,6 +36,15 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   const { toast } = useToast()
   const { gameState, recentEvents, connectionStatus, isConnected } = useRealtimeGame(gameId)
 
+  // Update game data if realtime state is available
+  useEffect(() => {
+    if (gameState) {
+      setGameData(prev => ({ ...prev, ...gameState }))
+    }
+  }, [gameState])
+
+  console.log('Live Game Debug:', { gameId, gameData, selectedPlayer, selectedTeam, pendingEventsCount, connectionStatus })
+
   useEffect(() => {
     // Setup offline queue network listeners
     eventQueueManager.setupNetworkListeners()
@@ -255,7 +264,10 @@ export default function LiveGamePage({ params }: LiveGamePageProps) {
 
   return (
     <ProtectedRoute requiredRole="scorer">
-      <LiveGameContent gameId={id} />
+      <div className="p-4">
+        <h2 className="text-lg font-bold mb-4">Live Game: {id}</h2>
+        <LiveGameContent gameId={id} />
+      </div>
     </ProtectedRoute>
   )
 }
