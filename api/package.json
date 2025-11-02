@@ -19,24 +19,28 @@
     "test:unit": "vitest run",
     "test:db": "tsx src/lib/test-db.ts",
     "test:boxscore": "tsx src/lib/test-boxscore.ts",
+    "test:realtime": "tsx src/lib/test-realtime.ts",
+    "test:broadcast": "tsx src/lib/test-broadcast.ts",
+    "demo:realtime": "tsx src/lib/realtime-demo.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.0.0",
     "@hono/node-server": "^1.8.0",
     "@prisma/client": "^5.7.0",
-    "zod": "^3.22.0",
-    "@supabase/supabase-js": "^2.38.0",
     "@sentry/node": "^7.85.0",
+    "@supabase/supabase-js": "^2.38.0",
     "date-fns": "^3.0.0",
-    "uuid": "^9.0.0"
+    "dotenv": "^17.2.3",
+    "hono": "^4.0.0",
+    "uuid": "^9.0.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
-    "typescript": "^5.3.0",
     "@types/node": "^20.0.0",
     "@types/uuid": "^9.0.0",
-    "tsx": "^4.6.0",
     "prisma": "^5.7.0",
+    "tsx": "^4.6.0",
+    "typescript": "^5.3.0",
     "vitest": "^1.1.0"
   }
 }

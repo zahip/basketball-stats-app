@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { GameEventSchema, BatchEventSchema } from '@/lib/validation'
 import { authMiddleware } from '@/middleware/auth'
 import { idempotencyMiddleware } from '@/middleware/idempotency'
-import { broadcastGameEvent, broadcastGameHeader } from '@/lib/supabase'
+import { broadcastGameEvent, broadcastGameHeader, broadcastBoxScore } from '@/lib/supabase'
 import { calculateBoxScores } from '@/lib/boxscore'
 
 const events = new Hono()
@@ -53,6 +53,21 @@ events.post('/:gameId/events', authMiddleware, idempotencyMiddleware, async (c) 
       await broadcastGameHeader(gameId, {
         type: 'header:update',
         payload: result.gameUpdate
+      })
+    }
+
+    // Broadcast updated box scores
+    const teamBoxScores = await prisma.boxScoreTeam.findMany({
+      where: { gameId }
+    })
+    
+    if (teamBoxScores.length > 0) {
+      await broadcastBoxScore(gameId, {
+        type: 'boxscore:update',
+        payload: {
+          teamBoxScores,
+          updatedAt: new Date().toISOString()
+        }
       })
     }
     
