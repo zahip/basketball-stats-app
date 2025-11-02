@@ -1,0 +1,67 @@
+import { z } from 'zod'
+
+// Event type enum for validation
+export const EventTypeSchema = z.enum([
+  'SHOT_2_MADE',
+  'SHOT_2_MISS', 
+  'SHOT_3_MADE',
+  'SHOT_3_MISS',
+  'FT_MADE',
+  'FT_MISS',
+  'REB_O',
+  'REB_D',
+  'AST',
+  'STL',
+  'BLK',
+  'TOV',
+  'FOUL',
+  'SUB_IN',
+  'SUB_OUT',
+  'TIMEOUT',
+  'START_PERIOD',
+  'END_PERIOD'
+])
+
+// Game event schema
+export const GameEventSchema = z.object({
+  gameId: z.string(),
+  period: z.number().min(1).max(4),
+  clockSec: z.number().min(0).max(720), // 12 minutes = 720 seconds
+  teamSide: z.enum(['us', 'opp']),
+  playerId: z.string().optional(),
+  type: EventTypeSchema,
+  meta: z.any().optional(),
+  ingestKey: z.string()
+})
+
+// Batch event ingest schema
+export const BatchEventSchema = z.object({
+  events: z.array(GameEventSchema).min(1).max(50) // Limit batch size
+})
+
+// Game creation schema
+export const CreateGameSchema = z.object({
+  teamId: z.string(),
+  opponent: z.string().min(1).max(100),
+  date: z.string().datetime(),
+  venue: z.string().optional()
+})
+
+// Game update schema
+export const UpdateGameSchema = z.object({
+  status: z.enum(['planned', 'live', 'final']).optional(),
+  period: z.number().min(1).max(4).optional(),
+  clockSec: z.number().min(0).max(720).optional(),
+  ourScore: z.number().min(0).optional(),
+  oppScore: z.number().min(0).optional()
+})
+
+// Player creation schema
+export const CreatePlayerSchema = z.object({
+  teamId: z.string(),
+  jersey: z.number().min(0).max(99),
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
+  position: z.string().max(10).optional(),
+  active: z.boolean().default(true)
+})
