@@ -5,6 +5,7 @@ A production-grade PWA for tracking live basketball game statistics. Built with 
 ## Tech Stack
 
 ### Frontend (`web/`)
+
 - **Framework**: Next.js 15 (App Router) + TypeScript
 - **Styling**: Tailwind CSS + shadcn/ui
 - **State Management**: TanStack Query + Zustand
@@ -14,6 +15,7 @@ A production-grade PWA for tracking live basketball game statistics. Built with 
 - **Auth**: Supabase Auth
 
 ### Backend (`api/`)
+
 - **Framework**: Hono + TypeScript
 - **Database**: Postgres (Supabase/Neon) + Prisma ORM
 - **Validation**: Zod
@@ -44,18 +46,21 @@ basketball-stats-app/
 ## Development Setup
 
 ### Prerequisites
+
 - Node.js 18+
 - PostgreSQL database (or Supabase account)
 
 ### 1. Environment Setup
 
 #### Frontend (.env.local)
+
 ```bash
 cp web/.env.example web/.env.local
 # Edit with your Supabase credentials
 ```
 
 #### Backend (.env)
+
 ```bash
 cp api/.env.example api/.env
 # Edit with your database and Supabase credentials
@@ -68,7 +73,7 @@ cp api/.env.example api/.env
 cd web
 npm install
 
-# Backend  
+# Backend
 cd ../api
 npm install
 ```
@@ -87,7 +92,7 @@ npm run db:seed      # Seed with sample data
 ```bash
 # Terminal 1 - Backend (API)
 cd api
-npm run dev          # Runs on http://localhost:3001
+npm run dev          # Runs on http://localhost:3002
 
 # Terminal 2 - Frontend (Web)
 cd web
@@ -97,23 +102,27 @@ npm run dev          # Runs on http://localhost:3000
 ## Key Features
 
 ### Live Game Tracking
+
 - Real-time event recording (shots, rebounds, assists, etc.)
 - Offline-first with automatic sync
 - Touch-optimized interface for tablets
 - Undo last event functionality
 
 ### Statistics & Reporting
+
 - Live box scores (team & player)
 - Four factors analysis (eFG%, TS%, etc.)
 - Shot charts with court visualization
 - Export to PDF
 
 ### Offline Support
+
 - Events queued in IndexedDB when offline
 - Background sync with exponential backoff
 - Optimistic UI updates
 
 ### Realtime Updates
+
 - Multiple devices can view same game
 - Supabase Realtime for instant updates
 - Role-based access (coach, scorer, viewer)
@@ -136,6 +145,7 @@ GET    /games/:gameId/boxscore/players # Get player stats
 ## Deployment
 
 ### Frontend (Vercel)
+
 ```bash
 cd web
 npm run build
@@ -143,6 +153,7 @@ npm run build
 ```
 
 ### Backend (Fly.io/Render)
+
 ```bash
 cd api
 npm run build
@@ -157,13 +168,14 @@ cd api
 npm test
 
 # E2E tests (Playwright)
-cd web  
+cd web
 npm run test:e2e
 ```
 
 ## Next Steps
 
 After STEP 1 completion, proceed with:
+
 - STEP 2: Prisma schema and migrations
 - STEP 3: API routes implementation
 - STEP 4: Realtime broadcasting
@@ -178,6 +190,7 @@ After STEP 1 completion, proceed with:
 ## STEP 1 Complete ✅
 
 **File Tree:**
+
 ```
 basketball-stats-app/
 ├── web/                           # Next.js Frontend
