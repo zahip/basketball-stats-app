@@ -22,12 +22,15 @@ export const EventTypeSchema = z.enum([
   'END_PERIOD'
 ])
 
+export const TeamSideSchema = z.enum(['US', 'OPP'])
+export const GameStatusSchema = z.enum(['PLANNED', 'LIVE', 'FINAL'])
+
 // Game event schema
 export const GameEventSchema = z.object({
   gameId: z.string(),
   period: z.number().min(1).max(4),
   clockSec: z.number().min(0).max(720), // 12 minutes = 720 seconds
-  teamSide: z.enum(['us', 'opp']),
+  teamSide: TeamSideSchema,
   playerId: z.string().optional(),
   type: EventTypeSchema,
   meta: z.any().optional(),
@@ -49,7 +52,7 @@ export const CreateGameSchema = z.object({
 
 // Game update schema
 export const UpdateGameSchema = z.object({
-  status: z.enum(['planned', 'live', 'final']).optional(),
+  status: GameStatusSchema.optional(),
   period: z.number().min(1).max(4).optional(),
   clockSec: z.number().min(0).max(720).optional(),
   ourScore: z.number().min(0).optional(),
@@ -64,4 +67,10 @@ export const CreatePlayerSchema = z.object({
   lastName: z.string().min(1).max(50),
   position: z.string().max(10).optional(),
   active: z.boolean().default(true)
+})
+
+// Team creation schema
+export const CreateTeamSchema = z.object({
+  name: z.string().min(1).max(100),
+  season: z.string().min(4).max(20)
 })

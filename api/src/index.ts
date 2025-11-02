@@ -5,6 +5,13 @@ import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import * as Sentry from "@sentry/node";
 
+// Import routes
+import { teams } from "./routes/teams";
+import { games } from "./routes/games";
+import { events } from "./routes/events";
+import { boxscore } from "./routes/boxscore";
+import { isSupabaseConfigured } from "./lib/supabase";
+
 // Initialize Sentry
 if (process.env.SENTRY_DSN) {
   Sentry.init({
@@ -35,16 +42,24 @@ app.get("/health", (c) => {
   });
 });
 
-// Routes will be added here
+// Mount routes
+app.route("/teams", teams);
+app.route("/games", games);
+app.route("/games", events);
+app.route("/games", boxscore);
+
+// Root endpoint
 app.get("/", (c) => {
   return c.json({
     message: "Basketball Stats API",
     version: "1.0.0",
     endpoints: {
       health: "/health",
-      teams: "/teams",
+      teams: "/teams/:teamId",
+      players: "/teams/:teamId/players",
       games: "/games",
-      players: "/players",
+      events: "/games/:gameId/events",
+      boxscore: "/games/:gameId/boxscore",
     },
   });
 });
@@ -52,6 +67,9 @@ app.get("/", (c) => {
 const port = parseInt(process.env.PORT || "3002");
 
 console.log(`🏀 Basketball Stats API running on port ${port}`);
+console.log(`📡 Supabase realtime: ${isSupabaseConfigured ? '✅ Configured' : '⚠️  Not configured (development mode)'}`);
+console.log(`🔐 Authentication: ${isSupabaseConfigured ? '✅ Enabled' : '🔓 Disabled (development mode)'}`);
+
 serve({
   fetch: app.fetch,
   port,

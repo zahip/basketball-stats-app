@@ -18,6 +18,7 @@
     "test": "vitest",
     "test:unit": "vitest run",
     "test:db": "tsx src/lib/test-db.ts",
+    "test:boxscore": "tsx src/lib/test-boxscore.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

@@ -130,16 +130,23 @@ npm run dev          # Runs on http://localhost:3000
 ## API Endpoints
 
 ```
-GET    /health                        # Health check
-GET    /teams/:teamId/players         # Get team players
-POST   /teams/:teamId/players         # Create player
-POST   /games                         # Create game
-GET    /games/:gameId                 # Get game details
-PATCH  /games/:gameId                 # Update game state
-POST   /games/:gameId/events          # Record events (with idempotency)
-GET    /games/:gameId/events          # Get play-by-play
-GET    /games/:gameId/boxscore/team   # Get team stats
-GET    /games/:gameId/boxscore/players # Get player stats
+GET    /health                           # Health check
+GET    /teams/:teamId                    # Get team details
+GET    /teams/:teamId/players            # Get team players
+POST   /teams/:teamId/players            # Create player (auth required)
+
+GET    /games                            # List games (filter by team/status)
+POST   /games                            # Create game (auth required)
+GET    /games/:gameId                    # Get game details
+PATCH  /games/:gameId                    # Update game state (auth required)
+
+POST   /games/:gameId/events             # Ingest events (auth + idempotency)
+GET    /games/:gameId/events             # Get play-by-play events
+
+GET    /games/:gameId/boxscore           # Complete box score (team + players)
+GET    /games/:gameId/boxscore/team      # Team box scores with advanced stats
+GET    /games/:gameId/boxscore/players   # Player box scores with advanced stats
+GET    /games/:gameId/boxscore/summary   # Four factors analysis
 ```
 
 ## Deployment
