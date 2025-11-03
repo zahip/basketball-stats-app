@@ -11,6 +11,7 @@ import { PlayersGrid } from '@/components/game/players-grid'
 import { eventQueueManager } from '@/lib/offline-queue'
 import { useToast } from '@/hooks/use-toast'
 import { useRealtimeGame } from '@/hooks/use-realtime-game'
+import { usePlayersStore } from '@/lib/stores/players-store'
 
 interface LiveGamePageProps {
   params: Promise<{ id: string }>
@@ -19,18 +20,17 @@ interface LiveGamePageProps {
 // Mock game data - would come from API
 const mockGameData = {
   id: '2',
-  homeTeam: 'Celtics',
-  awayTeam: 'Heat',
-  homeScore: 78,
-  awayScore: 71,
-  status: 'active' as const,
+  homeTeam: 'Your Team', // Your team
+  awayTeam: 'Opponents', // Opponent team
+  homeScore: 78, // Your team score
+  awayScore: 71, // Opponent score  
+  status: 'active' as 'scheduled' | 'active' | 'paused' | 'completed',
   period: 3,
   clock: '08:42'
 }
 
 function LiveGameContent({ gameId }: { gameId: string }) {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null)
-  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away' | null>(null)
   const [gameData, setGameData] = useState(mockGameData)
   const [pendingEventsCount, setPendingEventsCount] = useState(0)
   const { toast } = useToast()
@@ -43,7 +43,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     }
   }, [gameState])
 
-  console.log('Live Game Debug:', { gameId, gameData, selectedPlayer, selectedTeam, pendingEventsCount, connectionStatus })
+  console.log('Live Game Debug:', { gameId, gameData, selectedPlayer, pendingEventsCount, connectionStatus })
 
   useEffect(() => {
     // Setup offline queue network listeners
@@ -62,43 +62,73 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     setPendingEventsCount(pendingEvents.length)
   }
 
-  const handlePlayerSelect = (playerId: string, team: 'home' | 'away') => {
+  const handlePlayerSelect = (playerId: string) => {
     if (playerId === '') {
       setSelectedPlayer(null)
-      setSelectedTeam(null)
     } else {
       setSelectedPlayer(playerId)
-      setSelectedTeam(team)
     }
   }
 
   const handleAction = async (eventType: string, data: any) => {
-    if (!selectedPlayer || !selectedTeam) {
+    if (!selectedPlayer) {
       toast({
-        title: "Selection Required",
-        description: "Please select a player and team first",
+        title: "Selection Required", 
+        description: "Please select a player first",
         variant: "destructive"
       })
       return
     }
 
     try {
-      // Add event to offline queue
+      // Get the selected player details
+      const { getActivePlayers } = usePlayersStore.getState()
+      const players = getActivePlayers()
+      const player = players.find(p => p.id === selectedPlayer)
+      
+      if (!player) {
+        toast({
+          title: "Player Not Found",
+          description: "Selected player not found in roster",
+          variant: "destructive"
+        })
+        return
+      }
+
+      // Convert clock time to seconds (e.g., "08:42" -> 522 seconds)
+      const clockToSeconds = (clockString: string): number => {
+        const [minutes, seconds] = clockString.split(':').map(Number)
+        return (minutes * 60) + seconds
+      }
+
+      console.log('Recording event:', {
+        eventType,
+        player: { id: player.id, number: player.number, name: player.name },
+        gameId,
+        period: gameData.period,
+        clock: gameData.clock
+      })
+
+      // Add event to offline queue (always for "your team")
+      // Use player number as ID since that's more likely what backend expects
       await eventQueueManager.addEvent(
         gameId,
         eventType,
-        selectedPlayer,
-        selectedTeam,
-        data
+        player.number.toString(), // Use player number instead of UUID
+        'home', // Your team is always considered "home" in the data
+        {
+          ...data,
+          period: gameData.period,
+          clockSec: clockToSeconds(gameData.clock)
+        }
       )
 
-      // Optimistic UI update
+      // Optimistic UI update - only update your team's score
       if (eventType.includes('made') || eventType.includes('field_goal_made') || eventType.includes('three_point_made')) {
         const points = eventType.includes('three_point') ? 3 : eventType.includes('free_throw') ? 1 : 2
         setGameData(prev => ({
           ...prev,
-          [selectedTeam === 'home' ? 'homeScore' : 'awayScore']: 
-            prev[selectedTeam === 'home' ? 'homeScore' : 'awayScore'] + points
+          homeScore: prev.homeScore + points // Your team score
         }))
       }
 
@@ -107,16 +137,10 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       toast({
         title: "Event Recorded",
-        description: `${eventType.replace(/_/g, ' ')} recorded for player #${selectedPlayer}`,
+        description: `${eventType.replace(/_/g, ' ')} recorded for player #${player.number}`,
       })
 
-      // Auto-clear selection for certain events
-      if (eventType.includes('made') || eventType.includes('missed')) {
-        // Keep selection for rapid fire events
-      } else {
-        setSelectedPlayer(null)
-        setSelectedTeam(null)
-      }
+      // Keep player selected for rapid stat entry
 
     } catch (error) {
       console.error('Failed to record event:', error)
@@ -156,16 +180,45 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     }
 
     try {
-      await eventQueueManager.syncPendingEvents()
+      const result = await eventQueueManager.syncPendingEvents()
       updatePendingEventsCount()
-      toast({
-        title: "Sync Complete",
-        description: "All pending events have been synced",
-      })
+      
+      if (result.total === 0) {
+        toast({
+          title: "Nothing to Sync",
+          description: "No pending events found",
+        })
+      } else if (result.synced === result.total) {
+        toast({
+          title: "Sync Complete",
+          description: `All ${result.synced} events synced successfully`,
+        })
+      } else if (result.synced === 0) {
+        // Check if it's an auth issue or API issue
+        const pendingEvents = await eventQueueManager.getPendingEvents(gameId)
+        if (pendingEvents.length > 0) {
+          toast({
+            title: "Sync Issue",
+            description: "Events queued - check authentication or API connection",
+            variant: "destructive"
+          })
+        } else {
+          toast({
+            title: "API Unavailable", 
+            description: "Events will sync when backend is running",
+            variant: "destructive"
+          })
+        }
+      } else {
+        toast({
+          title: "Partial Sync",
+          description: `${result.synced}/${result.total} events synced`,
+        })
+      }
     } catch (error) {
       toast({
-        title: "Sync Failed",
-        description: "Some events could not be synced",
+        title: "Sync Error",
+        description: "Unexpected error during sync",
         variant: "destructive"
       })
     }
@@ -201,6 +254,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
               {pendingEventsCount > 0 && (
                 <div className="text-yellow-600">
                   📋 {pendingEventsCount} events pending sync
+                  {!navigator.onLine && <span className="text-xs ml-1">(offline)</span>}
                 </div>
               )}
               {recentEvents.length > 0 && (
@@ -238,7 +292,6 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         <div className="lg:col-span-2">
           <ActionGrid
             selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeam}
             onAction={handleAction}
             disabled={gameData.status !== 'active'}
           />
@@ -247,10 +300,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         {/* Right Column: Players Grid */}
         <div>
           <PlayersGrid
-            homePlayers={[]}
-            awayPlayers={[]}
             selectedPlayer={selectedPlayer}
-            selectedTeam={selectedTeam}
             onPlayerSelect={handlePlayerSelect}
           />
         </div>

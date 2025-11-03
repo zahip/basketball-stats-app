@@ -6,12 +6,11 @@ import { Badge } from '@/components/ui/badge'
 
 interface ActionGridProps {
   selectedPlayer: string | null
-  selectedTeam: 'home' | 'away' | null
   onAction: (eventType: string, data?: any) => void
   disabled?: boolean
 }
 
-export function ActionGrid({ selectedPlayer, selectedTeam, onAction, disabled }: ActionGridProps) {
+export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridProps) {
   const shotActions = [
     { type: 'field_goal_made', label: '🏀 FG Made', color: 'bg-green-600' },
     { type: 'field_goal_missed', label: '❌ FG Miss', color: 'bg-red-600' },
@@ -36,13 +35,12 @@ export function ActionGrid({ selectedPlayer, selectedTeam, onAction, disabled }:
     { type: 'flagrant_foul', label: '🔴 Flagrant', color: 'bg-red-500' },
   ]
 
-  const isActionDisabled = disabled || !selectedPlayer || !selectedTeam
+  const isActionDisabled = disabled || !selectedPlayer
 
   const handleAction = (actionType: string) => {
     if (isActionDisabled) return
     onAction(actionType, {
       playerId: selectedPlayer,
-      team: selectedTeam,
       timestamp: Date.now()
     })
   }
@@ -69,14 +67,11 @@ export function ActionGrid({ selectedPlayer, selectedTeam, onAction, disabled }:
               {selectedPlayer ? (
                 <Badge variant="outline">Player #{selectedPlayer}</Badge>
               ) : (
-                <span className="text-muted-foreground">No player</span>
-              )}
-              {selectedTeam && (
-                <Badge variant="outline">{selectedTeam === 'home' ? 'Home' : 'Away'}</Badge>
+                <span className="text-muted-foreground">No player selected</span>
               )}
             </div>
             {isActionDisabled && (
-              <span className="text-yellow-600 text-xs">⚠️ Select player & team</span>
+              <span className="text-yellow-600 text-xs">⚠️ Select a player first</span>
             )}
           </div>
         </CardContent>

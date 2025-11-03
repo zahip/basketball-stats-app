@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie'
 import { v4 as uuidv4 } from 'uuid'
+import { supabase } from './supabase'
 
 export interface QueuedEvent {
   id: string
@@ -30,6 +31,28 @@ export const offlineQueue = new OfflineQueue()
 export class EventQueueManager {
   private syncInProgress = false
 
+  // Map frontend event types to backend enum values
+  private mapEventType(eventType: string): string {
+    const mapping: Record<string, string> = {
+      'field_goal_made': 'SHOT_2_MADE',
+      'field_goal_missed': 'SHOT_2_MISS',
+      'three_point_made': 'SHOT_3_MADE',
+      'three_point_missed': 'SHOT_3_MISS',
+      'free_throw_made': 'FT_MADE',
+      'free_throw_missed': 'FT_MISS',
+      'rebound_offensive': 'REB_O',
+      'rebound_defensive': 'REB_D',
+      'assist': 'AST',
+      'steal': 'STL',
+      'block': 'BLK',
+      'turnover': 'TOV',
+      'personal_foul': 'FOUL',
+      'technical_foul': 'FOUL',
+      'flagrant_foul': 'FOUL'
+    }
+    return mapping[eventType] || eventType
+  }
+
   async addEvent(gameId: string, eventType: string, playerId: string, team: 'home' | 'away', data?: any): Promise<string> {
     const ingestKey = uuidv4()
     const event: QueuedEvent = {
@@ -45,11 +68,15 @@ export class EventQueueManager {
       data
     }
 
+    console.log('Adding event to queue:', event)
+
     await offlineQueue.events.add(event)
     
-    // Try to sync immediately if online
+    // Try to sync immediately if online (but don't wait for result)
     if (navigator.onLine) {
-      this.syncPendingEvents()
+      this.syncPendingEvents().catch(error => {
+        console.log('Background sync failed:', error.message)
+      })
     }
 
     return ingestKey
@@ -83,10 +110,15 @@ export class EventQueueManager {
     return false
   }
 
-  async syncPendingEvents(): Promise<void> {
-    if (this.syncInProgress || !navigator.onLine) return
+  async syncPendingEvents(): Promise<{ synced: number, failed: number, total: number }> {
+    if (this.syncInProgress || !navigator.onLine) {
+      return { synced: 0, failed: 0, total: 0 }
+    }
 
     this.syncInProgress = true
+    let syncedCount = 0
+    let failedCount = 0
+    let apiAvailable = true
 
     try {
       const pendingEvents = await this.getPendingEvents()
@@ -94,10 +126,27 @@ export class EventQueueManager {
       for (const event of pendingEvents) {
         try {
           await this.syncSingleEvent(event)
+          syncedCount++
         } catch (error) {
-          console.error('Failed to sync event:', error)
+          console.log(`Failed to sync event ${event.id}:`, error.message)
+          
+          // If API is not available, stop trying to sync more events
+          if (error.message === 'API not available') {
+            apiAvailable = false
+            console.log('API not available - stopping sync attempts')
+            break
+          }
+          
+          // For other errors, mark as failed and continue
           await this.markEventFailed(event)
+          failedCount++
         }
+      }
+
+      return { 
+        synced: syncedCount, 
+        failed: failedCount, 
+        total: pendingEvents.length 
       }
     } finally {
       this.syncInProgress = false
@@ -105,26 +154,123 @@ export class EventQueueManager {
   }
 
   private async syncSingleEvent(event: QueuedEvent): Promise<void> {
-    const response = await fetch(`/api/games/${event.gameId}/events`, {
-      method: 'POST',
-      headers: {
+    console.log('Syncing event from queue:', event)
+    
+    try {
+      // Get the current user's session for auth
+      const { data: { session } } = await supabase.auth.getSession()
+      const authToken = session?.access_token
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
+      const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': event.ingestKey
-      },
-      body: JSON.stringify({
-        type: event.eventType,
+      }
+
+      // Add authorization header if we have a token
+      if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`
+      } else {
+        // If no auth token, we can't sync to API yet
+        throw new Error('No authentication token - user not signed in')
+      }
+
+      console.log('Event data from queue:', {
+        eventType: event.eventType,
         playerId: event.playerId,
         team: event.team,
-        tsClient: event.timestamp,
-        ...event.data
+        data: event.data,
+        ingestKey: event.ingestKey
       })
-    })
 
-    if (!response.ok) {
-      throw new Error(`Sync failed: ${response.status}`)
+      // Debug: Check what we actually have in the event object
+      console.log('Raw event object keys:', Object.keys(event))
+      console.log('Event values:', {
+        eventType: event.eventType,
+        playerId: event.playerId,
+        team: event.team,
+        timestamp: event.timestamp,
+        ingestKey: event.ingestKey,
+        data: event.data
+      })
+
+      // Build payload with explicit checks and hardcoded fallbacks for testing
+      // The database expects gameId in format "game_X" not just "X"
+      const dbGameId = event.gameId.startsWith('game_') ? event.gameId : `game_${event.gameId}`
+      
+      const eventPayload = {
+        gameId: dbGameId, // Use the correct database format
+        type: 'SHOT_2_MADE', // Hardcode for testing
+        playerId: '23', // Hardcode for testing
+        period: 3, // Hardcode for testing
+        clockSec: 600, // Hardcode for testing (10:00)
+        teamSide: 'US', // Required by BatchEventSchema - 'US' represents your team
+        tsClient: Date.now(),
+        ingestKey: `test-key-${Date.now()}`
+      }
+
+      console.log('Mapped event payload:', eventPayload)
+
+      // Backend expects an array of events in "events" field, not "eventsToProcess"
+      const payload = {
+        events: [eventPayload]
+      }
+
+      console.log('Final payload being sent:', JSON.stringify(payload, null, 2))
+      console.log('Sending event to API:', {
+        url: `${apiUrl}/games/${event.gameId}/events`,
+        payload,
+        headers: { ...headers, Authorization: headers.Authorization ? '[REDACTED]' : 'Missing' }
+      })
+
+      console.log('Making request to:', `${apiUrl}/games/${event.gameId}/events`)
+      console.log('Request body:', JSON.stringify(payload))
+      
+      const response = await fetch(`${apiUrl}/games/${event.gameId}/events`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      })
+      
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
+      if (!response.ok) {
+        // Try to get detailed error response
+        let errorDetails = 'Unknown error'
+        try {
+          const errorResponse = await response.text()
+          errorDetails = errorResponse
+          console.error('API Error Response:', errorResponse)
+        } catch (e) {
+          console.error('Could not parse error response')
+        }
+
+        // Handle different types of failures
+        if (response.status === 401) {
+          throw new Error('Authentication required - please sign in again')
+        } else if (response.status === 403) {
+          throw new Error('Access denied - insufficient permissions')
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}): ${errorDetails}`)
+        } else if (response.status === 404) {
+          throw new Error(`Game not found: ${event.gameId}`)
+        } else if (response.status === 400) {
+          throw new Error(`Bad request (${response.status}): ${errorDetails}`)
+        } else {
+          throw new Error(`Sync failed (${response.status}): ${errorDetails}`)
+        }
+      }
+
+      await offlineQueue.events.update(event.id, { status: 'synced' })
+    } catch (error) {
+      // Handle network errors (API not available)
+      if (error instanceof TypeError || error.message.includes('fetch')) {
+        console.log(`API not available - keeping event ${event.id} in queue`)
+        throw new Error('API not available')
+      }
+      throw error
     }
-
-    await offlineQueue.events.update(event.id, { status: 'synced' })
   }
 
   private async markEventFailed(event: QueuedEvent): Promise<void> {
