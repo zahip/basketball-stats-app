@@ -5,6 +5,24 @@ import { authMiddleware } from '@/middleware/auth'
 
 const teams = new Hono()
 
+// GET /teams - Get all teams
+teams.get('/', async (c) => {
+  try {
+    const allTeams = await prisma.team.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: {
+          select: { players: true, games: true }
+        }
+      }
+    })
+
+    return c.json({ teams: allTeams })
+  } catch (error) {
+    return c.json({ error: 'Failed to fetch teams' }, 500)
+  }
+})
+
 // GET /teams/:teamId/players - Get all players for a team
 teams.get('/:teamId/players', async (c) => {
   try {
