@@ -69,6 +69,9 @@ export interface UpdateGameData {
   clockSec?: number
   ourScore?: number
   oppScore?: number
+  // Atomic increments to prevent race conditions
+  incrementOurScore?: number
+  incrementOppScore?: number
 }
 
 export const gamesApi = {

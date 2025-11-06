@@ -64,21 +64,43 @@ games.patch('/:gameId', authMiddleware, async (c) => {
     const gameId = c.req.param('gameId')
     const body = await c.req.json()
     const validatedData = UpdateGameSchema.parse(body)
-    
+
+    // Build update data, handling atomic increments
+    const updateData: any = {
+      ...(validatedData.status && { status: validatedData.status }),
+      ...(validatedData.period !== undefined && { period: validatedData.period }),
+      ...(validatedData.clockSec !== undefined && { clockSec: validatedData.clockSec }),
+    }
+
+    // Handle score updates
+    if (validatedData.ourScore !== undefined) {
+      updateData.ourScore = validatedData.ourScore
+    } else if (validatedData.incrementOurScore !== undefined) {
+      // Use atomic increment to prevent race conditions
+      updateData.ourScore = { increment: validatedData.incrementOurScore }
+    }
+
+    if (validatedData.oppScore !== undefined) {
+      updateData.oppScore = validatedData.oppScore
+    } else if (validatedData.incrementOppScore !== undefined) {
+      // Use atomic increment to prevent race conditions
+      updateData.oppScore = { increment: validatedData.incrementOppScore }
+    }
+
     const game = await prisma.game.update({
       where: { id: gameId },
-      data: validatedData,
+      data: updateData,
       include: {
         team: true
       }
     })
-    
+
     return c.json({ game })
   } catch (error: any) {
     if (error.name === 'ZodError') {
-      return c.json({ 
-        error: 'Validation failed', 
-        details: error.errors 
+      return c.json({
+        error: 'Validation failed',
+        details: error.errors
       }, 400)
     }
     if (error.code === 'P2025') {

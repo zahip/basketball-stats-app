@@ -45,10 +45,23 @@ You should see `games` in the results.
 
 ## How It Works
 
+- **Atomic Increments**: Score updates use database-level atomic increments to prevent race conditions
 - **Optimistic Updates**: When you record a score, it updates immediately in your tab
 - **Postgres Changes**: Supabase listens to database changes via `postgres_changes`
 - **React Query Cache**: When a realtime update comes in, it updates the React Query cache
 - **Instant Sync**: All tabs listening to the same game get the update in real-time
+
+### Concurrent Update Safety
+
+The system uses **atomic increments** at the database level to handle concurrent updates safely:
+
+**Example:**
+- Score is 54
+- User A records +2 points → Sends `incrementOurScore: 2`
+- User B records +2 points → Sends `incrementOurScore: 2`
+- Database processes both: 54 + 2 + 2 = **58** ✅
+
+Without atomic increments, both users would send `ourScore: 56`, resulting in only 56 points total ❌
 
 ## Troubleshooting
 

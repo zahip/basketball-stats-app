@@ -56,8 +56,23 @@ export const UpdateGameSchema = z.object({
   period: z.number().min(1).max(4).optional(),
   clockSec: z.number().min(0).max(720).optional(),
   ourScore: z.number().min(0).optional(),
-  oppScore: z.number().min(0).optional()
-})
+  oppScore: z.number().min(0).optional(),
+  // Support atomic increments to prevent race conditions
+  incrementOurScore: z.number().optional(),
+  incrementOppScore: z.number().optional()
+}).refine(
+  (data) => {
+    // Can't use both absolute and increment for the same score
+    if (data.ourScore !== undefined && data.incrementOurScore !== undefined) {
+      return false;
+    }
+    if (data.oppScore !== undefined && data.incrementOppScore !== undefined) {
+      return false;
+    }
+    return true;
+  },
+  { message: "Cannot use both absolute score and increment for the same team" }
+)
 
 // Player creation schema
 export const CreatePlayerSchema = z.object({

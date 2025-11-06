@@ -92,12 +92,30 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       queryClient.setQueryData(["game", gameId], (old: unknown) => {
         if (!old) return old;
         const oldData = old as { id: string; game: Record<string, unknown> };
+
+        const updatedGame = { ...oldData.game };
+
+        // Handle increments for optimistic update
+        if (updatedData.incrementOurScore !== undefined) {
+          updatedGame.ourScore = (oldData.game.ourScore as number) + updatedData.incrementOurScore;
+        } else if (updatedData.ourScore !== undefined) {
+          updatedGame.ourScore = updatedData.ourScore;
+        }
+
+        if (updatedData.incrementOppScore !== undefined) {
+          updatedGame.oppScore = (oldData.game.oppScore as number) + updatedData.incrementOppScore;
+        } else if (updatedData.oppScore !== undefined) {
+          updatedGame.oppScore = updatedData.oppScore;
+        }
+
+        // Handle other fields
+        if (updatedData.status) updatedGame.status = updatedData.status;
+        if (updatedData.period !== undefined) updatedGame.period = updatedData.period;
+        if (updatedData.clockSec !== undefined) updatedGame.clockSec = updatedData.clockSec;
+
         return {
           ...oldData,
-          game: {
-            ...oldData.game,
-            ...updatedData,
-          },
+          game: updatedGame,
         };
       });
 
@@ -268,12 +286,10 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           ? 1
           : 2;
 
-        // Calculate new score from current API data
-        const newScore = (gameApiData?.game.ourScore || 0) + points;
-
-        // Update score in database - optimistic update in mutation will show it immediately
+        // Use atomic increment to prevent race conditions
+        // This ensures concurrent updates from multiple tabs add correctly
         updateGameMutation.mutate({
-          ourScore: newScore,
+          incrementOurScore: points,
         });
       }
 
