@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { use } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ProtectedRoute } from "@/components/auth/protected-route";
@@ -13,7 +13,7 @@ import { eventQueueManager } from "@/lib/offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeGame } from "@/hooks/use-realtime-game";
 import { usePlayersStore } from "@/lib/stores/players-store";
-import { gamesApi } from "@/lib/api-client";
+import { gamesApi, UpdateGameData } from "@/lib/api-client";
 
 interface LiveGamePageProps {
   params: Promise<{ id: string }>;
@@ -58,6 +58,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   const { toast } = useToast();
   const { gameState, recentEvents, connectionStatus, isConnected } =
     useRealtimeGame(gameId);
+  const queryClient = useQueryClient();
 
   // Fetch game data from API
   const {
@@ -67,33 +68,107 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   } = useQuery({
     queryKey: ["game", gameId],
     queryFn: () => gamesApi.getById(gameId),
-    refetchInterval: 5000, // Refetch every 5 seconds for live updates
+    refetchOnWindowFocus: true, // Refetch when switching tabs
+    refetchInterval: false, // Disable polling - we're using Supabase Realtime instead
+  });
+
+  // Track the last mutation timestamp to prevent stale updates
+  const lastMutationRef = useRef<number>(0);
+
+  // Mutation to update game score with optimistic updates for current tab
+  const updateGameMutation = useMutation({
+    mutationFn: (data: UpdateGameData) => gamesApi.update(gameId, data),
+    onMutate: async (updatedData) => {
+      // Record mutation timestamp
+      lastMutationRef.current = Date.now();
+
+      // Cancel outgoing queries
+      await queryClient.cancelQueries({ queryKey: ["game", gameId] });
+
+      // Snapshot previous value
+      const previousGameData = queryClient.getQueryData(["game", gameId]);
+
+      // Optimistically update current tab immediately
+      queryClient.setQueryData(["game", gameId], (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as { id: string; game: Record<string, unknown> };
+        return {
+          ...oldData,
+          game: {
+            ...oldData.game,
+            ...updatedData,
+          },
+        };
+      });
+
+      console.log("⚡ Optimistic update applied:", updatedData);
+      return { previousGameData };
+    },
+    onSuccess: async (data) => {
+      // Update cache with server response
+      queryClient.setQueryData(["game", gameId], data);
+      console.log("✅ Score update confirmed by server - Supabase Realtime will notify other tabs");
+    },
+    onError: (error, _updatedData, context: unknown) => {
+      console.error("❌ Failed to update score:", error);
+      // Rollback on error
+      const ctx = context as { previousGameData?: unknown };
+      if (ctx?.previousGameData) {
+        queryClient.setQueryData(["game", gameId], ctx.previousGameData);
+      }
+    },
   });
 
   console.log("gameApiData", gameApiData);
 
-  // Initialize game data from API
-  useEffect(() => {
-    if (gameApiData) {
-      setGameData({
+  // Derive display data directly from API data (no local state for scores)
+  const displayData = gameApiData
+    ? {
         id: gameApiData.id,
-        homeTeam: gameApiData.game.team?.name,
-        awayTeam: gameApiData.game.opponent,
+        homeTeam: gameApiData.game.team?.name || "Your Team",
+        awayTeam: gameApiData.game.opponent || "Opponent",
         homeScore: gameApiData.game.ourScore,
         awayScore: gameApiData.game.oppScore,
         status: mapGameStatus(gameApiData.game.status),
         period: gameApiData.game.period,
         clock: formatClock(gameApiData.game.clockSec),
+      }
+    : gameData;
+
+  // Update React Query cache when realtime update comes in
+  useEffect(() => {
+    if (gameState && gameApiData) {
+      const timeSinceLastMutation = Date.now() - lastMutationRef.current;
+
+      // If we just made a mutation in the last 2 seconds, ignore realtime updates
+      // to prevent stale database state from overwriting our optimistic update
+      if (timeSinceLastMutation < 2000) {
+        console.log('⏭️ Ignoring realtime update (recent mutation)', { timeSinceLastMutation });
+        return;
+      }
+
+      console.log('🔥 Realtime update received, updating cache:', gameState);
+
+      // Update the query cache with realtime data
+      queryClient.setQueryData(["game", gameId], (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as { id: string; game: Record<string, unknown> };
+
+        return {
+          ...oldData,
+          game: {
+            ...oldData.game,
+            ourScore: gameState.homeScore,
+            oppScore: gameState.awayScore,
+            period: gameState.period,
+            clockSec: parseInt(gameState.clock.split(':')[0]) * 60 + parseInt(gameState.clock.split(':')[1]),
+            status: gameState.status === 'active' ? 'LIVE' :
+                    gameState.status === 'completed' ? 'FINAL' : 'PLANNED',
+          },
+        };
       });
     }
-  }, [gameApiData]);
-
-  // Update game data if realtime state is available
-  useEffect(() => {
-    if (gameState) {
-      setGameData((prev) => ({ ...prev, ...gameState }));
-    }
-  }, [gameState]);
+  }, [gameState, gameApiData, queryClient, gameId]);
 
   console.log("Live Game Debug:", {
     gameId,
@@ -181,7 +256,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         }
       );
 
-      // Optimistic UI update - only update your team's score
+      // Calculate points and update score in database
       if (
         eventType.includes("made") ||
         eventType.includes("field_goal_made") ||
@@ -192,10 +267,14 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           : eventType.includes("free_throw")
           ? 1
           : 2;
-        setGameData((prev) => ({
-          ...prev,
-          homeScore: prev.homeScore + points, // Your team score
-        }));
+
+        // Calculate new score from current API data
+        const newScore = (gameApiData?.game.ourScore || 0) + points;
+
+        // Update score in database - optimistic update in mutation will show it immediately
+        updateGameMutation.mutate({
+          ourScore: newScore,
+        });
       }
 
       // Update pending events count
@@ -319,13 +398,13 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       {/* Game Header */}
       <GameHeader
         gameId={gameId}
-        homeTeam={gameData.homeTeam}
-        awayTeam={gameData.awayTeam}
-        homeScore={gameData.homeScore}
-        awayScore={gameData.awayScore}
-        period={gameData.period}
-        clock={gameData.clock}
-        status={gameData.status}
+        homeTeam={displayData.homeTeam}
+        awayTeam={displayData.awayTeam}
+        homeScore={displayData.homeScore}
+        awayScore={displayData.awayScore}
+        period={displayData.period}
+        clock={displayData.clock}
+        status={displayData.status}
       />
 
       {/* Offline Status & Controls */}
@@ -401,7 +480,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           <ActionGrid
             selectedPlayer={selectedPlayer}
             onAction={handleAction}
-            disabled={gameData.status !== "active"}
+            disabled={displayData.status !== "active"}
           />
         </div>
 

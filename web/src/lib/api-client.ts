@@ -63,6 +63,14 @@ export interface CreateGameData {
   venue?: string
 }
 
+export interface UpdateGameData {
+  status?: 'PLANNED' | 'LIVE' | 'FINAL'
+  period?: number
+  clockSec?: number
+  ourScore?: number
+  oppScore?: number
+}
+
 export const gamesApi = {
   getAll: async (params?: { teamId?: string; status?: string }): Promise<GamesResponse> => {
     const searchParams = new URLSearchParams()
@@ -101,6 +109,23 @@ export const gamesApi = {
     if (!response.ok) {
       const error = await response.json()
       throw new Error(error.error || 'Failed to create game')
+    }
+
+    return response.json()
+  },
+
+  update: async (gameId: string, data: UpdateGameData) => {
+    const headers = await getAuthHeaders()
+
+    const response = await fetch(`${API_URL}/games/${gameId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.error || 'Failed to update game')
     }
 
     return response.json()
