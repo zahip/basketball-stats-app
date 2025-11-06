@@ -56,8 +56,13 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   });
   const [pendingEventsCount, setPendingEventsCount] = useState(0);
   const { toast } = useToast();
-  const { gameState, recentEvents, connectionStatus, isConnected } =
-    useRealtimeGame(gameId);
+  const {
+    gameState,
+    recentEvents,
+    connectionStatus,
+    isConnected,
+    broadcastScoreUpdate,
+  } = useRealtimeGame(gameId);
   const queryClient = useQueryClient();
 
   // Fetch game data from API
@@ -74,19 +79,54 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
   // Track the last mutation timestamp to prevent stale updates
   const lastMutationRef = useRef<number>(0);
+  // Track mutation sequence to prevent stale broadcasts
+  const mutationSequenceRef = useRef<number>(0);
 
   // Mutation to update game score with optimistic updates for current tab
   const updateGameMutation = useMutation({
     mutationFn: (data: UpdateGameData) => gamesApi.update(gameId, data),
     onMutate: async (updatedData) => {
-      // Record mutation timestamp
+      // Record mutation timestamp and increment sequence
       lastMutationRef.current = Date.now();
+      mutationSequenceRef.current += 1;
+      const currentSequence = mutationSequenceRef.current;
 
       // Cancel outgoing queries
       await queryClient.cancelQueries({ queryKey: ["game", gameId] });
 
       // Snapshot previous value
       const previousGameData = queryClient.getQueryData(["game", gameId]);
+      const oldData = previousGameData as
+        | { id: string; game: Record<string, unknown> }
+        | undefined;
+
+      // Calculate the new scores for optimistic update
+      let optimisticOurScore = oldData?.game.ourScore as number;
+      let optimisticOppScore = oldData?.game.oppScore as number;
+
+      if (updatedData.incrementOurScore !== undefined) {
+        optimisticOurScore =
+          (oldData?.game.ourScore as number) + updatedData.incrementOurScore;
+      } else if (updatedData.ourScore !== undefined) {
+        optimisticOurScore = updatedData.ourScore;
+      }
+
+      if (updatedData.incrementOppScore !== undefined) {
+        optimisticOppScore =
+          (oldData?.game.oppScore as number) + updatedData.incrementOppScore;
+      } else if (updatedData.oppScore !== undefined) {
+        optimisticOppScore = updatedData.oppScore;
+      }
+
+      // Broadcast IMMEDIATELY to other tabs (before server responds)
+      await broadcastScoreUpdate({
+        ourScore: optimisticOurScore,
+        oppScore: optimisticOppScore,
+        period: (updatedData.period ?? oldData?.game.period) as number,
+        clockSec: (updatedData.clockSec ?? oldData?.game.clockSec) as number,
+        status: (updatedData.status ?? oldData?.game.status) as string,
+      });
+      console.log("📡 Instant broadcast sent to other tabs (before server)");
 
       // Optimistically update current tab immediately
       queryClient.setQueryData(["game", gameId], (old: unknown) => {
@@ -97,21 +137,25 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
         // Handle increments for optimistic update
         if (updatedData.incrementOurScore !== undefined) {
-          updatedGame.ourScore = (oldData.game.ourScore as number) + updatedData.incrementOurScore;
+          updatedGame.ourScore =
+            (oldData.game.ourScore as number) + updatedData.incrementOurScore;
         } else if (updatedData.ourScore !== undefined) {
           updatedGame.ourScore = updatedData.ourScore;
         }
 
         if (updatedData.incrementOppScore !== undefined) {
-          updatedGame.oppScore = (oldData.game.oppScore as number) + updatedData.incrementOppScore;
+          updatedGame.oppScore =
+            (oldData.game.oppScore as number) + updatedData.incrementOppScore;
         } else if (updatedData.oppScore !== undefined) {
           updatedGame.oppScore = updatedData.oppScore;
         }
 
         // Handle other fields
         if (updatedData.status) updatedGame.status = updatedData.status;
-        if (updatedData.period !== undefined) updatedGame.period = updatedData.period;
-        if (updatedData.clockSec !== undefined) updatedGame.clockSec = updatedData.clockSec;
+        if (updatedData.period !== undefined)
+          updatedGame.period = updatedData.period;
+        if (updatedData.clockSec !== undefined)
+          updatedGame.clockSec = updatedData.clockSec;
 
         return {
           ...oldData,
@@ -120,12 +164,45 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       });
 
       console.log("⚡ Optimistic update applied:", updatedData);
-      return { previousGameData };
+      return { previousGameData, updatedData, sequence: currentSequence };
     },
-    onSuccess: async (data) => {
-      // Update cache with server response
-      queryClient.setQueryData(["game", gameId], data);
-      console.log("✅ Score update confirmed by server - Supabase Realtime will notify other tabs");
+    onSuccess: async (data, _variables, context: unknown) => {
+      const ctx = context as { sequence?: number };
+      const currentCacheData = queryClient.getQueryData(["game", gameId]) as
+        | { game: { ourScore: number; oppScore: number } }
+        | undefined;
+
+      // Only update if this response is not stale (score hasn't moved ahead)
+      if (
+        !currentCacheData ||
+        data.game.ourScore >= currentCacheData.game.ourScore
+      ) {
+        // Update cache with authoritative server response
+        queryClient.setQueryData(["game", gameId], data);
+
+        // Only broadcast if this is the latest mutation or score moved forward
+        await broadcastScoreUpdate({
+          ourScore: data.game.ourScore,
+          oppScore: data.game.oppScore,
+          period: data.game.period,
+          clockSec: data.game.clockSec,
+          status: data.game.status,
+        });
+
+        console.log(
+          "✅ Score update confirmed by server - authoritative broadcast sent",
+          { sequence: ctx?.sequence, score: data.game.ourScore }
+        );
+      } else {
+        console.log(
+          "⏭️ Skipping stale server response",
+          {
+            sequence: ctx?.sequence,
+            serverScore: data.game.ourScore,
+            currentScore: currentCacheData.game.ourScore,
+          }
+        );
+      }
     },
     onError: (error, _updatedData, context: unknown) => {
       console.error("❌ Failed to update score:", error);
@@ -161,16 +238,28 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       // If we just made a mutation in the last 2 seconds, ignore realtime updates
       // to prevent stale database state from overwriting our optimistic update
       if (timeSinceLastMutation < 2000) {
-        console.log('⏭️ Ignoring realtime update (recent mutation)', { timeSinceLastMutation });
+        console.log("⏭️ Ignoring realtime update (recent mutation)", {
+          timeSinceLastMutation,
+        });
         return;
       }
 
-      console.log('🔥 Realtime update received, updating cache:', gameState);
+      console.log("🔥 Realtime update received, updating cache:", gameState);
 
       // Update the query cache with realtime data
       queryClient.setQueryData(["game", gameId], (old: unknown) => {
         if (!old) return old;
         const oldData = old as { id: string; game: Record<string, unknown> };
+
+        // Check if incoming score is stale (lower than current cache)
+        const currentScore = oldData.game.ourScore as number;
+        if (gameState.homeScore < currentScore) {
+          console.log("⏭️ Ignoring stale realtime update in cache sync", {
+            incomingScore: gameState.homeScore,
+            currentScore,
+          });
+          return old; // Keep current cache, ignore stale update
+        }
 
         return {
           ...oldData,
@@ -179,9 +268,15 @@ function LiveGameContent({ gameId }: { gameId: string }) {
             ourScore: gameState.homeScore,
             oppScore: gameState.awayScore,
             period: gameState.period,
-            clockSec: parseInt(gameState.clock.split(':')[0]) * 60 + parseInt(gameState.clock.split(':')[1]),
-            status: gameState.status === 'active' ? 'LIVE' :
-                    gameState.status === 'completed' ? 'FINAL' : 'PLANNED',
+            clockSec:
+              parseInt(gameState.clock.split(":")[0]) * 60 +
+              parseInt(gameState.clock.split(":")[1]),
+            status:
+              gameState.status === "active"
+                ? "LIVE"
+                : gameState.status === "completed"
+                ? "FINAL"
+                : "PLANNED",
           },
         };
       });
@@ -210,6 +305,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
   const updatePendingEventsCount = async () => {
     const pendingEvents = await eventQueueManager.getPendingEvents(gameId);
+    console.log("pendingEvents", pendingEvents);
     setPendingEventsCount(pendingEvents.length);
   };
 

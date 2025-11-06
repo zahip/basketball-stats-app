@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -46,6 +46,8 @@ export function useRealtimeGame(gameId: string) {
   const [connectionStatus, setConnectionStatus] = useState<
     "connecting" | "connected" | "disconnected"
   >("connecting");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!gameId || !supabase) {
@@ -56,9 +58,57 @@ export function useRealtimeGame(gameId: string) {
 
     console.log(`📡 Setting up Supabase Realtime for game: ${gameId}`);
 
-    // Subscribe to database changes on the games table for this specific game
+    // Primary channel: Broadcast for instant fan-out
     const gameChannel = supabase
-      .channel(`game_${gameId}_db_changes`)
+      .channel(`game_${gameId}`)
+      .on("broadcast", { event: "score_update" }, (payload) => {
+        console.log("🔥 Score update broadcast received:", payload);
+
+        if (payload.payload) {
+          // Only update if the incoming score is >= current score (prevent stale updates)
+          setGameState((currentState) => {
+            if (
+              currentState &&
+              payload.payload.ourScore < currentState.homeScore
+            ) {
+              console.log("⏭️ Ignoring stale broadcast update", {
+                incomingScore: payload.payload.ourScore,
+                currentScore: currentState.homeScore,
+              });
+              return currentState; // Keep current state, ignore stale update
+            }
+
+            return {
+              id: gameId,
+              homeTeam: "", // Not needed for score updates
+              awayTeam: "",
+              homeScore: payload.payload.ourScore,
+              awayScore: payload.payload.oppScore,
+              period: payload.payload.period,
+              clock: formatClockFromSeconds(payload.payload.clockSec),
+              status: mapDatabaseStatusToLocal(payload.payload.status),
+            };
+          });
+        }
+      })
+      .on("broadcast", { event: "game_event" }, (payload) => {
+        console.log("Game event:", payload);
+        if (payload.payload) {
+          setRecentEvents((prev) => [payload.payload, ...prev.slice(0, 9)]);
+        }
+      })
+      .subscribe((status) => {
+        console.log("Game realtime subscription status:", status);
+        setConnectionStatus(
+          status === "SUBSCRIBED" ? "connected" : "connecting"
+        );
+      });
+
+    channelRef.current = gameChannel;
+
+    // Fallback: Postgres changes for recovery/sync
+    const postgresChannel = supabase
+      .channel(`game_${gameId}_postgres`)
       .on(
         "postgres_changes",
         {
@@ -68,43 +118,37 @@ export function useRealtimeGame(gameId: string) {
           filter: `id=eq.${gameId}`,
         },
         (payload) => {
-          console.log("🔥 Game database update received:", payload);
-          // Payload.new contains the updated row
+          console.log("🔄 Postgres fallback update:", payload);
           const updatedGame = payload.new as any;
 
-          console.log("🔥 updatedGame", updatedGame);
-
-          // Update game state with new data
           if (updatedGame) {
-            setGameState({
-              id: updatedGame.id,
-              homeTeam: updatedGame.teamId, // You may need to adjust based on your schema
-              awayTeam: updatedGame.opponent,
-              homeScore: updatedGame.ourScore,
-              awayScore: updatedGame.oppScore,
-              period: updatedGame.period,
-              clock: formatClockFromSeconds(updatedGame.clockSec),
-              status: mapDatabaseStatusToLocal(updatedGame.status),
+            // Only update if the incoming score is >= current score (prevent stale updates)
+            setGameState((currentState) => {
+              if (
+                currentState &&
+                updatedGame.ourScore < currentState.homeScore
+              ) {
+                console.log("⏭️ Ignoring stale Postgres update", {
+                  incomingScore: updatedGame.ourScore,
+                  currentScore: currentState.homeScore,
+                });
+                return currentState; // Keep current state, ignore stale update
+              }
+
+              return {
+                id: updatedGame.id,
+                homeTeam: updatedGame.teamId,
+                awayTeam: updatedGame.opponent,
+                homeScore: updatedGame.ourScore,
+                awayScore: updatedGame.oppScore,
+                period: updatedGame.period,
+                clock: formatClockFromSeconds(updatedGame.clockSec),
+                status: mapDatabaseStatusToLocal(updatedGame.status),
+              };
             });
           }
         }
       )
-      .subscribe((status) => {
-        console.log("Game realtime subscription status:", status);
-        setConnectionStatus(
-          status === "SUBSCRIBED" ? "connected" : "connecting"
-        );
-      });
-
-    // Subscribe to game events (you can keep this for event tracking)
-    const eventsChannel = supabase
-      .channel(`game_${gameId}_events`)
-      .on("broadcast", { event: "game_event" }, (payload) => {
-        console.log("Game event:", payload);
-        if (payload.payload) {
-          setRecentEvents((prev) => [payload.payload, ...prev.slice(0, 9)]); // Keep last 10 events
-        }
-      })
       .subscribe();
 
     // Handle connection state changes
@@ -118,7 +162,7 @@ export function useRealtimeGame(gameId: string) {
     // Cleanup subscriptions
     return () => {
       gameChannel.unsubscribe();
-      eventsChannel.unsubscribe();
+      postgresChannel.unsubscribe();
       window.removeEventListener("online", handleConnectionChange);
       window.removeEventListener("offline", handleConnectionChange);
     };
@@ -147,11 +191,35 @@ export function useRealtimeGame(gameId: string) {
     }
   };
 
+  // Function to broadcast score updates to other tabs
+  const broadcastScoreUpdate = async (update: {
+    ourScore: number;
+    oppScore: number;
+    period: number;
+    clockSec: number;
+    status: string;
+    timestamp?: number; // Add timestamp to detect stale broadcasts
+  }) => {
+    if (channelRef.current) {
+      const payload = {
+        ...update,
+        timestamp: update.timestamp || Date.now(), // Add timestamp if not provided
+      };
+      await channelRef.current.send({
+        type: "broadcast",
+        event: "score_update",
+        payload,
+      });
+      console.log("📡 Broadcast sent to other tabs:", payload);
+    }
+  };
+
   return {
     gameState,
     recentEvents,
     boxScore,
     connectionStatus,
     isConnected: connectionStatus === "connected",
+    broadcastScoreUpdate,
   };
 }

@@ -45,23 +45,90 @@ You should see `games` in the results.
 
 ## How It Works
 
-- **Atomic Increments**: Score updates use database-level atomic increments to prevent race conditions
-- **Optimistic Updates**: When you record a score, it updates immediately in your tab
-- **Postgres Changes**: Supabase listens to database changes via `postgres_changes`
-- **React Query Cache**: When a realtime update comes in, it updates the React Query cache
-- **Instant Sync**: All tabs listening to the same game get the update in real-time
+### Hybrid Architecture: Broadcast + Postgres
+
+The system uses a **hybrid approach** for optimal performance and reliability:
+
+1. **Atomic Increments at Database Level**
+   - Score updates use `incrementOurScore` instead of absolute values
+   - Prevents race conditions when multiple users update simultaneously
+   - Postgres/Prisma handles: `UPDATE games SET ourScore = ourScore + N`
+
+2. **Optimistic Updates (Current Tab)**
+   - Instant visual feedback when you record a score
+   - No waiting for server response
+
+3. **Supabase Realtime Broadcast (Other Tabs)**
+   - After server confirms update, broadcast to all connected tabs
+   - Uses Supabase's pub/sub for instant fan-out
+   - No database polling needed
+
+4. **Postgres Changes (Fallback)**
+   - Listens to actual database changes as backup
+   - Ensures sync even if broadcast fails
+   - Provides recovery for disconnected tabs
+
+### Flow Diagram
+
+```
+User records basket (Tab 1)
+  ↓
+⚡ Optimistic update (Tab 1 - instant)
+  │
+  ├─→ 📡 INSTANT Broadcast optimistic score (Tab 2,3,N see it NOW!)
+  │
+  └─→ API: PATCH /games/:id { incrementOurScore: 3 }
+      ↓
+      → Postgres: UPDATE games SET ourScore = ourScore + 3 (atomic)
+      ↓
+      ← Server response: { game: { ourScore: 57, ... } }
+      ↓
+      ✅ Update Tab 1 cache with server response
+      ↓
+      📡 Broadcast authoritative score (confirmation to all tabs)
+      ↓
+      ✅ All tabs confirmed with correct score
+```
+
+**Key improvement:** Broadcast happens TWICE:
+1. **Optimistic broadcast** (instant) - before server responds
+2. **Authoritative broadcast** (correction) - after server confirms
+
+**Fast-click protection:** When clicking rapidly (e.g., 54→56→58), the system prevents flickering at **three levels**:
+
+1. **Level 1 - Sender (Tab 1 onSuccess):**
+   - Tracks mutation sequence numbers
+   - Skips broadcasting stale server responses (56) if cache already shows newer score (58)
+   - Location: `page.tsx` line 169-205
+
+2. **Level 2 - Realtime Receivers:**
+   - **Broadcast channel**: Compares incoming score with current state, ignores lower scores
+   - **Postgres fallback**: Same protection against stale database updates
+   - Location: `use-realtime-game.ts` lines 68-91, 125-148
+
+3. **Level 3 - Cache Sync (Tab 2):**
+   - Before syncing realtime updates to React Query cache, checks if incoming score is stale
+   - Prevents stale `gameState` from overwriting newer cache values
+   - Location: `page.tsx` lines 254-262
+
+**Result:**
+- No flickering: score smoothly goes 54→56→58 in all tabs
+- Stale updates are blocked at sender, receiver, AND cache sync layers
+- Protection works even during rapid clicking or network delays
+
+This ensures instant visual feedback across all tabs without any flickering!
 
 ### Concurrent Update Safety
 
-The system uses **atomic increments** at the database level to handle concurrent updates safely:
-
-**Example:**
+**Example with atomic increments:**
 - Score is 54
-- User A records +2 points → Sends `incrementOurScore: 2`
-- User B records +2 points → Sends `incrementOurScore: 2`
-- Database processes both: 54 + 2 + 2 = **58** ✅
+- User A (Tab 1): Records +2 → Sends `incrementOurScore: 2`
+- User B (Tab 2): Records +2 → Sends `incrementOurScore: 2`
+- Database executes atomically: 54 + 2 + 2 = **58** ✅
 
-Without atomic increments, both users would send `ourScore: 56`, resulting in only 56 points total ❌
+**Without atomic increments (old approach):**
+- Both tabs see 54, both send `ourScore: 56`
+- Result: Score incorrectly shows 56 ❌
 
 ## Troubleshooting
 
