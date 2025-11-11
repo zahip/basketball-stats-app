@@ -9,6 +9,9 @@ import { ProtectedRoute } from "@/components/auth/protected-route";
 import { GameHeader } from "@/components/game/game-header";
 import { ActionGrid } from "@/components/game/action-grid";
 import { PlayersGrid } from "@/components/game/players-grid";
+import { BoxScore } from "@/components/game/box-score";
+import { GameControls } from "@/components/game/game-controls";
+import { PlayByPlay } from "@/components/game/play-by-play";
 import { eventQueueManager } from "@/lib/offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeGame } from "@/hooks/use-realtime-game";
@@ -371,16 +374,8 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       );
 
       // Calculate points and update score in database
-      if (
-        eventType.includes("made") ||
-        eventType.includes("field_goal_made") ||
-        eventType.includes("three_point_made")
-      ) {
-        const points = eventType.includes("three_point")
-          ? 3
-          : eventType.includes("free_throw")
-          ? 1
-          : 2;
+      if (eventType === 'SHOT_3_MADE' || eventType === 'SHOT_2_MADE' || eventType === 'FT_MADE') {
+        const points = eventType === 'SHOT_3_MADE' ? 3 : eventType === 'FT_MADE' ? 1 : 2;
 
         // Use atomic increment to prevent race conditions
         // This ensures concurrent updates from multiple tabs add correctly
@@ -586,7 +581,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       </Card>
 
       {/* Main Game Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         {/* Left Column: Action Grid */}
         <div className="lg:col-span-2">
           <ActionGrid
@@ -596,13 +591,28 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           />
         </div>
 
-        {/* Right Column: Players Grid */}
-        <div>
+        {/* Right Column: Players Grid & Game Controls */}
+        <div className="space-y-4">
           <PlayersGrid
             selectedPlayer={selectedPlayer}
             onPlayerSelect={handlePlayerSelect}
           />
+          <GameControls
+            gameId={gameId}
+            currentPeriod={displayData.period}
+            currentClock={
+              parseInt(displayData.clock.split(":")[0]) * 60 +
+              parseInt(displayData.clock.split(":")[1])
+            }
+            status={displayData.status}
+          />
         </div>
+      </div>
+
+      {/* Statistics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <BoxScore gameId={gameId} />
+        <PlayByPlay gameId={gameId} />
       </div>
     </div>
   );

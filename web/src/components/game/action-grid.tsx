@@ -12,27 +12,30 @@ interface ActionGridProps {
 
 export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridProps) {
   const shotActions = [
-    { type: 'field_goal_made', label: '🏀 FG Made', color: 'bg-green-600' },
-    { type: 'field_goal_missed', label: '❌ FG Miss', color: 'bg-red-600' },
-    { type: 'three_point_made', label: '🎯 3PT Made', color: 'bg-green-600' },
-    { type: 'three_point_missed', label: '❌ 3PT Miss', color: 'bg-red-600' },
-    { type: 'free_throw_made', label: '✅ FT Made', color: 'bg-green-600' },
-    { type: 'free_throw_missed', label: '❌ FT Miss', color: 'bg-red-600' },
+    { type: 'SHOT_2_MADE', label: '🏀 2PT Made', color: 'bg-green-600' },
+    { type: 'SHOT_2_MISS', label: '❌ 2PT Miss', color: 'bg-red-600' },
+    { type: 'SHOT_3_MADE', label: '🎯 3PT Made', color: 'bg-green-600' },
+    { type: 'SHOT_3_MISS', label: '❌ 3PT Miss', color: 'bg-red-600' },
+    { type: 'FT_MADE', label: '✅ FT Made', color: 'bg-green-600' },
+    { type: 'FT_MISS', label: '❌ FT Miss', color: 'bg-red-600' },
   ]
 
   const playActions = [
-    { type: 'assist', label: '🤝 Assist', color: 'bg-blue-600' },
-    { type: 'rebound_offensive', label: '↗️ Off Reb', color: 'bg-orange-600' },
-    { type: 'rebound_defensive', label: '↘️ Def Reb', color: 'bg-purple-600' },
-    { type: 'steal', label: '🔥 Steal', color: 'bg-yellow-600' },
-    { type: 'block', label: '🚫 Block', color: 'bg-red-600' },
-    { type: 'turnover', label: '😔 Turnover', color: 'bg-gray-600' },
+    { type: 'AST', label: '🤝 Assist', color: 'bg-blue-600' },
+    { type: 'REB_O', label: '↗️ Off Reb', color: 'bg-orange-600' },
+    { type: 'REB_D', label: '↘️ Def Reb', color: 'bg-purple-600' },
+    { type: 'STL', label: '🔥 Steal', color: 'bg-yellow-600' },
+    { type: 'BLK', label: '🚫 Block', color: 'bg-red-600' },
+    { type: 'TOV', label: '😔 Turnover', color: 'bg-gray-600' },
   ]
 
   const foulActions = [
-    { type: 'personal_foul', label: '🟡 Personal', color: 'bg-yellow-500' },
-    { type: 'technical_foul', label: '🟠 Technical', color: 'bg-orange-500' },
-    { type: 'flagrant_foul', label: '🔴 Flagrant', color: 'bg-red-500' },
+    { type: 'FOUL', label: '🟡 Foul', color: 'bg-yellow-500' },
+  ]
+
+  const substitutionActions = [
+    { type: 'SUB_IN', label: '➡️ Sub In', color: 'bg-green-600' },
+    { type: 'SUB_OUT', label: '⬅️ Sub Out', color: 'bg-blue-600' },
   ]
 
   const isActionDisabled = disabled || !selectedPlayer
@@ -113,6 +116,20 @@ export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridPro
         <CardContent>
           <div className="grid grid-cols-1 gap-2">
             {foulActions.map((action) => (
+              <ActionButton key={action.type} action={action} size="sm" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Substitutions */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">↔️ Substitutions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-2">
+            {substitutionActions.map((action) => (
               <ActionButton key={action.type} action={action} size="sm" />
             ))}
           </div>

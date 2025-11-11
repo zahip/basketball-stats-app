@@ -119,8 +119,8 @@ export default function GamesPage() {
                   </Button>
                 )}
                 {game.status === 'PLANNED' && canManage && (
-                  <Button asChild variant="outline" size="sm">
-                    <Link href={`/games/${game.id}/start`}>Start Game</Link>
+                  <Button asChild size="sm">
+                    <Link href={`/games/${game.id}`}>Start Game</Link>
                   </Button>
                 )}
               </div>

@@ -16,6 +16,19 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers
 }
 
+// Generic API client for custom endpoints not covered by specific APIs
+export async function apiClient(endpoint: string, options?: RequestInit): Promise<Response> {
+  const headers = await getAuthHeaders()
+
+  return fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options?.headers,
+    },
+  })
+}
+
 interface Game {
   id: string
   teamId: string

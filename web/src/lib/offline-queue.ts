@@ -33,6 +33,7 @@ export class EventQueueManager {
 
   // Map frontend event types to backend enum values
   private mapEventType(eventType: string): string {
+    // Legacy mapping for old event types (keeping for backwards compatibility)
     const mapping: Record<string, string> = {
       'field_goal_made': 'SHOT_2_MADE',
       'field_goal_missed': 'SHOT_2_MISS',
@@ -48,8 +49,11 @@ export class EventQueueManager {
       'turnover': 'TOV',
       'personal_foul': 'FOUL',
       'technical_foul': 'FOUL',
-      'flagrant_foul': 'FOUL'
+      'flagrant_foul': 'FOUL',
+      'sub_in': 'SUB_IN',
+      'sub_out': 'SUB_OUT'
     }
+    // Return mapped value or original if already in correct format
     return mapping[eventType] || eventType
   }
 
@@ -183,33 +187,22 @@ export class EventQueueManager {
         ingestKey: event.ingestKey
       })
 
-      // Debug: Check what we actually have in the event object
-      console.log('Raw event object keys:', Object.keys(event))
-      console.log('Event values:', {
-        eventType: event.eventType,
-        playerId: event.playerId,
-        team: event.team,
-        timestamp: event.timestamp,
-        ingestKey: event.ingestKey,
-        data: event.data
-      })
+      // Map the event type to backend format
+      const mappedEventType = this.mapEventType(event.eventType)
 
-      // Build payload with explicit checks and hardcoded fallbacks for testing
-      // The database expects gameId in format "game_X" not just "X"
-      const dbGameId = event.gameId.startsWith('game_') ? event.gameId : `game_${event.gameId}`
-      
+      // Build the event payload matching the backend schema
       const eventPayload = {
-        gameId: dbGameId, // Use the correct database format
-        type: 'SHOT_2_MADE', // Hardcode for testing
-        playerId: '23', // Hardcode for testing
-        period: 3, // Hardcode for testing
-        clockSec: 600, // Hardcode for testing (10:00)
-        teamSide: 'US', // Required by BatchEventSchema - 'US' represents your team
-        tsClient: Date.now(),
-        ingestKey: `test-key-${Date.now()}`
+        gameId: event.gameId,
+        type: mappedEventType,
+        playerId: event.playerId,
+        period: event.data?.period || 1,
+        clockSec: event.data?.clockSec || 600,
+        teamSide: event.team === 'home' ? 'US' : 'OPP',
+        meta: event.data || {},
+        ingestKey: event.ingestKey
       }
 
-      console.log('Mapped event payload:', eventPayload)
+      console.log('Event payload to send:', eventPayload)
 
       // Backend expects an array of events in "events" field, not "eventsToProcess"
       const payload = {
