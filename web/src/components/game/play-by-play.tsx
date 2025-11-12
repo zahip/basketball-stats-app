@@ -9,7 +9,7 @@ import { Loader2 } from 'lucide-react';
 interface GameEvent {
   id: string;
   gameId: string;
-  eventType: string;
+  type: string;
   playerId: string | null;
   teamSide: string;
   period: number;
@@ -50,7 +50,8 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
       .join(' ');
   };
 
-  const getEventIcon = (eventType: string) => {
+  const getEventIcon = (eventType: string | null | undefined) => {
+    if (!eventType) return '•';
     if (eventType.includes('MADE')) return '✓';
     if (eventType.includes('MISS')) return '✗';
     if (eventType.includes('AST')) return '🎯';
@@ -63,7 +64,9 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
     return '•';
   };
 
-  const getEventColor = (eventType: string, teamSide: string) => {
+  const getEventColor = (eventType: string | null | undefined, teamSide: string) => {
+    if (!eventType) return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
+
     const isOurTeam = teamSide === 'US';
 
     if (eventType.includes('MADE')) {
@@ -155,15 +158,15 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
                       <div
                         key={event.id}
                         className={`flex items-start gap-3 p-3 rounded-lg border ${getEventColor(
-                          event.eventType,
+                          event.type,
                           event.teamSide
                         )}`}
                       >
-                        <div className="text-lg">{getEventIcon(event.eventType)}</div>
+                        <div className="text-lg">{getEventIcon(event.type)}</div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-baseline justify-between gap-2 mb-1">
                             <span className="font-semibold text-sm">
-                              {formatEventType(event.eventType)}
+                              {formatEventType(event.type)}
                             </span>
                             <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
                               {formatClock(event.clockSec)}

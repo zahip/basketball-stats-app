@@ -17,13 +17,19 @@ export const isSupabaseConfigured = true
 export const broadcastGameEvent = async (gameId: string, event: any) => {
   try {
     const channel = supabase.channel(`game:${gameId}`)
-    
+
+    // CRITICAL FIX: Subscribe to channel before sending
+    await channel.subscribe()
+
     await channel.send({
       type: 'broadcast',
       event: 'game_event',
       payload: event
     })
     console.log(`📡 Broadcasted game event for game ${gameId}`)
+
+    // Cleanup: Unsubscribe after sending
+    await channel.unsubscribe()
   } catch (error) {
     console.error('❌ Failed to broadcast game event:', error)
   }
@@ -33,15 +39,22 @@ export const broadcastGameEvent = async (gameId: string, event: any) => {
 export const broadcastGameHeader = async (gameId: string, header: any) => {
   try {
     const channel = supabase.channel(`game:${gameId}`)
-    
+
+    // CRITICAL FIX: Subscribe to channel before sending
+    await channel.subscribe()
+
+    // FIX: Change event name from 'header_update' to 'score_update' to match frontend
     await channel.send({
       type: 'broadcast',
-      event: 'header_update',
+      event: 'score_update',
       payload: header
     })
-    console.log(`📡 Broadcasted header update for game ${gameId}`)
+    console.log(`📡 Broadcasted score update for game ${gameId}`)
+
+    // Cleanup: Unsubscribe after sending
+    await channel.unsubscribe()
   } catch (error) {
-    console.error('❌ Failed to broadcast header update:', error)
+    console.error('❌ Failed to broadcast score update:', error)
   }
 }
 
@@ -49,13 +62,20 @@ export const broadcastGameHeader = async (gameId: string, header: any) => {
 export const broadcastBoxScore = async (gameId: string, boxscore: any) => {
   try {
     const channel = supabase.channel(`game:${gameId}`)
-    
+
+    // CRITICAL FIX: Subscribe to channel before sending
+    await channel.subscribe()
+
+    // Note: Frontend doesn't currently listen for this event, but keeping consistent naming
     await channel.send({
       type: 'broadcast',
-      event: 'boxscore_update',
+      event: 'boxscore:update',
       payload: boxscore
     })
     console.log(`📡 Broadcasted boxscore update for game ${gameId}`)
+
+    // Cleanup: Unsubscribe after sending
+    await channel.unsubscribe()
   } catch (error) {
     console.error('❌ Failed to broadcast boxscore update:', error)
   }

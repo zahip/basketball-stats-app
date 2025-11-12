@@ -83,19 +83,15 @@ events.post(
       }
 
       // Broadcast events via Supabase Realtime
+      // Note: broadcastGameEvent already wraps in correct format with event: 'game_event'
       for (const event of result.events) {
-        await broadcastGameEvent(gameId, {
-          type: "event:new",
-          payload: event,
-        });
+        await broadcastGameEvent(gameId, event);
       }
 
       // Broadcast game header update
+      // Note: broadcastGameHeader already wraps with event: 'score_update'
       if (result.gameUpdate) {
-        await broadcastGameHeader(gameId, {
-          type: "header:update",
-          payload: result.gameUpdate,
-        });
+        await broadcastGameHeader(gameId, result.gameUpdate);
       }
 
       // Broadcast updated box scores
@@ -104,12 +100,10 @@ events.post(
       });
 
       if (teamBoxScores.length > 0) {
+        // Note: broadcastBoxScore already wraps with event: 'boxscore:update'
         await broadcastBoxScore(gameId, {
-          type: "boxscore:update",
-          payload: {
-            teamBoxScores,
-            updatedAt: new Date().toISOString(),
-          },
+          teamBoxScores,
+          updatedAt: new Date().toISOString(),
         });
       }
 

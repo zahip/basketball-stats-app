@@ -45,6 +45,81 @@ function mapGameStatus(
   }
 }
 
+// Helper function to calculate stat deltas from event types
+interface StatDelta {
+  scoreIncrement: number;
+  fgmIncrement?: number;
+  fgaIncrement?: number;
+  fg3mIncrement?: number;
+  fg3aIncrement?: number;
+  ftmIncrement?: number;
+  ftaIncrement?: number;
+  orebIncrement?: number;
+  drebIncrement?: number;
+  astIncrement?: number;
+  stlIncrement?: number;
+  blkIncrement?: number;
+  tovIncrement?: number;
+  pfIncrement?: number;
+}
+
+function calculateStatDelta(eventType: string): StatDelta {
+  const delta: StatDelta = { scoreIncrement: 0 };
+
+  switch (eventType) {
+    case 'SHOT_2_MADE':
+      delta.scoreIncrement = 2;
+      delta.fgmIncrement = 1;
+      delta.fgaIncrement = 1;
+      break;
+    case 'SHOT_2_MISS':
+      delta.fgaIncrement = 1;
+      break;
+    case 'SHOT_3_MADE':
+      delta.scoreIncrement = 3;
+      delta.fg3mIncrement = 1;
+      delta.fg3aIncrement = 1;
+      delta.fgmIncrement = 1;
+      delta.fgaIncrement = 1;
+      break;
+    case 'SHOT_3_MISS':
+      delta.fg3aIncrement = 1;
+      delta.fgaIncrement = 1;
+      break;
+    case 'FT_MADE':
+      delta.scoreIncrement = 1;
+      delta.ftmIncrement = 1;
+      delta.ftaIncrement = 1;
+      break;
+    case 'FT_MISS':
+      delta.ftaIncrement = 1;
+      break;
+    case 'REB_O':
+      delta.orebIncrement = 1;
+      break;
+    case 'REB_D':
+      delta.drebIncrement = 1;
+      break;
+    case 'AST':
+      delta.astIncrement = 1;
+      break;
+    case 'STL':
+      delta.stlIncrement = 1;
+      break;
+    case 'BLK':
+      delta.blkIncrement = 1;
+      break;
+    case 'TOV':
+      delta.tovIncrement = 1;
+      break;
+    case 'FOUL':
+      delta.pfIncrement = 1;
+      break;
+  }
+
+  return delta;
+}
+
 function LiveGameContent({ gameId }: { gameId: string }) {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [gameData, setGameData] = useState({
@@ -104,19 +179,20 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         | undefined;
 
       // Calculate the new scores for optimistic update
-      let optimisticOurScore = oldData?.game.ourScore as number;
-      let optimisticOppScore = oldData?.game.oppScore as number;
+      // ISSUE #3 FIX: Add null guards to prevent crashes when cache data is undefined
+      let optimisticOurScore = (oldData?.game.ourScore as number) ?? 0;
+      let optimisticOppScore = (oldData?.game.oppScore as number) ?? 0;
 
       if (updatedData.incrementOurScore !== undefined) {
         optimisticOurScore =
-          (oldData?.game.ourScore as number) + updatedData.incrementOurScore;
+          ((oldData?.game.ourScore as number) ?? 0) + updatedData.incrementOurScore;
       } else if (updatedData.ourScore !== undefined) {
         optimisticOurScore = updatedData.ourScore;
       }
 
       if (updatedData.incrementOppScore !== undefined) {
         optimisticOppScore =
-          (oldData?.game.oppScore as number) + updatedData.incrementOppScore;
+          ((oldData?.game.oppScore as number) ?? 0) + updatedData.incrementOppScore;
       } else if (updatedData.oppScore !== undefined) {
         optimisticOppScore = updatedData.oppScore;
       }
@@ -125,9 +201,9 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       await broadcastScoreUpdate({
         ourScore: optimisticOurScore,
         oppScore: optimisticOppScore,
-        period: (updatedData.period ?? oldData?.game.period) as number,
-        clockSec: (updatedData.clockSec ?? oldData?.game.clockSec) as number,
-        status: (updatedData.status ?? oldData?.game.status) as string,
+        period: (updatedData.period ?? oldData?.game.period ?? 1) as number,
+        clockSec: (updatedData.clockSec ?? oldData?.game.clockSec ?? 600) as number,
+        status: (updatedData.status ?? oldData?.game.status ?? 'PLANNED') as string,
       });
       console.log("📡 Instant broadcast sent to other tabs (before server)");
 
@@ -138,17 +214,18 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
         const updatedGame = { ...oldData.game };
 
+        // ISSUE #3 FIX: Add null guards to prevent crashes when cache data is undefined
         // Handle increments for optimistic update
         if (updatedData.incrementOurScore !== undefined) {
           updatedGame.ourScore =
-            (oldData.game.ourScore as number) + updatedData.incrementOurScore;
+            ((oldData.game.ourScore as number) ?? 0) + updatedData.incrementOurScore;
         } else if (updatedData.ourScore !== undefined) {
           updatedGame.ourScore = updatedData.ourScore;
         }
 
         if (updatedData.incrementOppScore !== undefined) {
           updatedGame.oppScore =
-            (oldData.game.oppScore as number) + updatedData.incrementOppScore;
+            ((oldData.game.oppScore as number) ?? 0) + updatedData.incrementOppScore;
         } else if (updatedData.oppScore !== undefined) {
           updatedGame.oppScore = updatedData.oppScore;
         }
@@ -330,10 +407,16 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       return;
     }
 
+    // ISSUE #2 FIX: Move Zustand store call outside async handler to avoid React rules violations
+    // Get the selected player details before entering try block
+    const { getActivePlayers } = usePlayersStore.getState();
+    const players = getActivePlayers();
+
+    // Declare snapshots outside try block for rollback access
+    let previousGameData: unknown = null;
+    let previousBoxScore: unknown = null;
+
     try {
-      // Get the selected player details
-      const { getActivePlayers } = usePlayersStore.getState();
-      const players = getActivePlayers();
       const player = players.find((p) => p.id === selectedPlayer);
 
       if (!player) {
@@ -359,6 +442,176 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         clock: gameData.clock,
       });
 
+      // Calculate stat deltas for optimistic updates
+      const statDelta = calculateStatDelta(eventType);
+
+      // Snapshot current data BEFORE any optimistic updates (for rollback)
+      await queryClient.cancelQueries({ queryKey: ["game", gameId] });
+      await queryClient.cancelQueries({ queryKey: ["boxscore", gameId] });
+
+      previousGameData = queryClient.getQueryData(["game", gameId]);
+      previousBoxScore = queryClient.getQueryData(["boxscore", gameId]);
+
+      // OPTIMISTIC UPDATE #1: Update game score immediately
+      if (statDelta.scoreIncrement > 0) {
+        // Optimistically update game score in cache
+        queryClient.setQueryData(["game", gameId], (old: unknown) => {
+          if (!old) return old;
+          const oldData = old as { id: string; game: Record<string, unknown> };
+
+          return {
+            ...oldData,
+            game: {
+              ...oldData.game,
+              ourScore: ((oldData.game.ourScore as number) ?? 0) + statDelta.scoreIncrement,
+            },
+          };
+        });
+
+        // Broadcast optimistic score update to other tabs
+        const updatedGame = queryClient.getQueryData(["game", gameId]) as
+          | { game: { ourScore: number; oppScore: number; period: number; clockSec: number; status: string } }
+          | undefined;
+
+        if (updatedGame) {
+          await broadcastScoreUpdate({
+            ourScore: updatedGame.game.ourScore,
+            oppScore: updatedGame.game.oppScore,
+            period: updatedGame.game.period,
+            clockSec: updatedGame.game.clockSec,
+            status: updatedGame.game.status,
+          });
+        }
+
+        console.log(`⚡ Optimistic score update: +${statDelta.scoreIncrement} points`);
+      }
+
+      // OPTIMISTIC UPDATE #2: Update box score immediately
+
+      // Optimistically update player stats in box score cache
+      queryClient.setQueryData(["boxscore", gameId], (old: unknown) => {
+        if (!old) return old;
+        const oldData = old as {
+          gameId: string;
+          teamStats: any[];
+          playerStats: Array<{
+            playerId: string;
+            playerNumber: number;
+            playerName: string;
+            points: number;
+            fgm: number;
+            fga: number;
+            fg3m: number;
+            fg3a: number;
+            ftm: number;
+            fta: number;
+            oreb: number;
+            dreb: number;
+            reb: number;
+            ast: number;
+            stl: number;
+            blk: number;
+            tov: number;
+            pf: number;
+            plusMinus: number;
+            minutesPlayed: number;
+          }>;
+        };
+
+        // Safety check: If playerStats doesn't exist, initialize it
+        if (!oldData.playerStats) {
+          console.log("⚠️ Box score data not loaded yet, skipping optimistic update");
+          return old;
+        }
+
+        // Find or create player stats entry
+        const playerIndex = oldData.playerStats.findIndex(
+          (p) => p.playerNumber === player.number
+        );
+
+        let updatedPlayerStats = [...oldData.playerStats];
+
+        if (playerIndex >= 0) {
+          // Update existing player stats
+          const currentStats = updatedPlayerStats[playerIndex];
+          updatedPlayerStats[playerIndex] = {
+            ...currentStats,
+            points: currentStats.points + statDelta.scoreIncrement,
+            fgm: currentStats.fgm + (statDelta.fgmIncrement ?? 0),
+            fga: currentStats.fga + (statDelta.fgaIncrement ?? 0),
+            fg3m: currentStats.fg3m + (statDelta.fg3mIncrement ?? 0),
+            fg3a: currentStats.fg3a + (statDelta.fg3aIncrement ?? 0),
+            ftm: currentStats.ftm + (statDelta.ftmIncrement ?? 0),
+            fta: currentStats.fta + (statDelta.ftaIncrement ?? 0),
+            oreb: currentStats.oreb + (statDelta.orebIncrement ?? 0),
+            dreb: currentStats.dreb + (statDelta.drebIncrement ?? 0),
+            reb: currentStats.reb + (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
+            ast: currentStats.ast + (statDelta.astIncrement ?? 0),
+            stl: currentStats.stl + (statDelta.stlIncrement ?? 0),
+            blk: currentStats.blk + (statDelta.blkIncrement ?? 0),
+            tov: currentStats.tov + (statDelta.tovIncrement ?? 0),
+            pf: currentStats.pf + (statDelta.pfIncrement ?? 0),
+          };
+        } else {
+          // Create new player stats entry (first event for this player)
+          updatedPlayerStats.push({
+            playerId: player.id,
+            playerNumber: player.number,
+            playerName: player.name,
+            points: statDelta.scoreIncrement,
+            fgm: statDelta.fgmIncrement ?? 0,
+            fga: statDelta.fgaIncrement ?? 0,
+            fg3m: statDelta.fg3mIncrement ?? 0,
+            fg3a: statDelta.fg3aIncrement ?? 0,
+            ftm: statDelta.ftmIncrement ?? 0,
+            fta: statDelta.ftaIncrement ?? 0,
+            oreb: statDelta.orebIncrement ?? 0,
+            dreb: statDelta.drebIncrement ?? 0,
+            reb: (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
+            ast: statDelta.astIncrement ?? 0,
+            stl: statDelta.stlIncrement ?? 0,
+            blk: statDelta.blkIncrement ?? 0,
+            tov: statDelta.tovIncrement ?? 0,
+            pf: statDelta.pfIncrement ?? 0,
+            plusMinus: 0,
+            minutesPlayed: 0,
+          });
+        }
+
+        // Update team stats as well
+        const updatedTeamStats = (oldData.teamStats || []).map((team) => {
+          if (team.teamSide === 'US') {
+            return {
+              ...team,
+              points: team.points + statDelta.scoreIncrement,
+              fgm: team.fgm + (statDelta.fgmIncrement ?? 0),
+              fga: team.fga + (statDelta.fgaIncrement ?? 0),
+              fg3m: team.fg3m + (statDelta.fg3mIncrement ?? 0),
+              fg3a: team.fg3a + (statDelta.fg3aIncrement ?? 0),
+              ftm: team.ftm + (statDelta.ftmIncrement ?? 0),
+              fta: team.fta + (statDelta.ftaIncrement ?? 0),
+              oreb: team.oreb + (statDelta.orebIncrement ?? 0),
+              dreb: team.dreb + (statDelta.drebIncrement ?? 0),
+              reb: team.reb + (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
+              ast: team.ast + (statDelta.astIncrement ?? 0),
+              stl: team.stl + (statDelta.stlIncrement ?? 0),
+              blk: team.blk + (statDelta.blkIncrement ?? 0),
+              tov: team.tov + (statDelta.tovIncrement ?? 0),
+              pf: team.pf + (statDelta.pfIncrement ?? 0),
+            };
+          }
+          return team;
+        });
+
+        console.log(`⚡ Optimistic box score update for player #${player.number}`);
+
+        return {
+          ...oldData,
+          playerStats: updatedPlayerStats,
+          teamStats: updatedTeamStats,
+        };
+      });
+
       // Add event to offline queue (always for "your team")
       // Use player number as ID since that's more likely what backend expects
       await eventQueueManager.addEvent(
@@ -373,16 +626,10 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         }
       );
 
-      // Calculate points and update score in database
-      if (eventType === 'SHOT_3_MADE' || eventType === 'SHOT_2_MADE' || eventType === 'FT_MADE') {
-        const points = eventType === 'SHOT_3_MADE' ? 3 : eventType === 'FT_MADE' ? 1 : 2;
-
-        // Use atomic increment to prevent race conditions
-        // This ensures concurrent updates from multiple tabs add correctly
-        updateGameMutation.mutate({
-          incrementOurScore: points,
-        });
-      }
+      // The event will sync through offline queue
+      // When it succeeds, backend will broadcast updates via Supabase Realtime
+      // The real-time updates will be applied through useRealtimeGame hook
+      // If sync fails, we'll keep the optimistic state until successful sync
 
       // Update pending events count
       updatePendingEventsCount();
@@ -397,9 +644,21 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       // Keep player selected for rapid stat entry
     } catch (error) {
       console.error("Failed to record event:", error);
+
+      // Rollback optimistic updates on error
+      // Use the snapshots captured BEFORE optimistic updates
+      if (previousGameData) {
+        queryClient.setQueryData(["game", gameId], previousGameData);
+        console.log("🔄 Rolled back game score update");
+      }
+      if (previousBoxScore) {
+        queryClient.setQueryData(["boxscore", gameId], previousBoxScore);
+        console.log("🔄 Rolled back box score update");
+      }
+
       toast({
         title: "Recording Failed",
-        description: "Event will be retried when connection is restored",
+        description: "Could not record event. Please try again.",
         variant: "destructive",
       });
     }

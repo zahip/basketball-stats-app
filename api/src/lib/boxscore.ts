@@ -10,6 +10,30 @@ export async function calculateBoxScores(gameId: string, tx: any) {
 
   console.log("events", events);
 
+  // Get the game to find its team
+  const game = await tx.game.findUnique({
+    where: { id: gameId },
+    select: { teamId: true },
+  });
+
+  if (!game) {
+    throw new Error(`Game ${gameId} not found`);
+  }
+
+  // Get all players for the team to create jersey -> UUID mapping
+  const players = await tx.player.findMany({
+    where: { teamId: game.teamId },
+    select: { id: true, jersey: true },
+  });
+
+  // Create jersey number -> player UUID mapping
+  const jerseyToPlayerId = new Map<string, string>();
+  players.forEach((player) => {
+    jerseyToPlayerId.set(player.jersey.toString(), player.id);
+  });
+
+  console.log("Jersey to Player ID mapping:", Object.fromEntries(jerseyToPlayerId));
+
   // Initialize team stats
   const teamStats = {
     US: {
@@ -104,11 +128,21 @@ export async function calculateBoxScores(gameId: string, tx: any) {
     }
 
     // Update player stats if playerId is present
+    // FIX: Map jersey number (from event.playerId) to actual player UUID
     if (event.playerId && event.teamSide === "US") {
-      if (!playerStats.has(event.playerId)) {
-        playerStats.set(event.playerId, {
+      // event.playerId contains jersey number as string (e.g., "23")
+      // We need to map it to the actual player UUID
+      const actualPlayerId = jerseyToPlayerId.get(event.playerId);
+
+      if (!actualPlayerId) {
+        console.warn(`Player with jersey ${event.playerId} not found in team ${game.teamId}`);
+        continue; // Skip this event if player not found
+      }
+
+      if (!playerStats.has(actualPlayerId)) {
+        playerStats.set(actualPlayerId, {
           gameId,
-          playerId: event.playerId,
+          playerId: actualPlayerId, // Use UUID, not jersey number
           minutes: 0, // TODO: Calculate from SUB events
           pts: 0,
           fgm2: 0,
@@ -128,7 +162,7 @@ export async function calculateBoxScores(gameId: string, tx: any) {
         });
       }
 
-      const player = playerStats.get(event.playerId);
+      const player = playerStats.get(actualPlayerId);
 
       console.log("player", player);
 
