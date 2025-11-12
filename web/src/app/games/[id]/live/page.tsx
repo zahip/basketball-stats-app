@@ -761,6 +761,17 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
+      {/* Game Controls - Top of Page */}
+      <GameControls
+        gameId={gameId}
+        currentPeriod={displayData.period}
+        currentClock={
+          parseInt(displayData.clock.split(":")[0]) * 60 +
+          parseInt(displayData.clock.split(":")[1])
+        }
+        status={displayData.status}
+      />
+
       {/* Game Header */}
       <GameHeader
         gameId={gameId}
@@ -850,20 +861,11 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           />
         </div>
 
-        {/* Right Column: Players Grid & Game Controls */}
+        {/* Right Column: Players Grid */}
         <div className="space-y-4">
           <PlayersGrid
             selectedPlayer={selectedPlayer}
             onPlayerSelect={handlePlayerSelect}
-          />
-          <GameControls
-            gameId={gameId}
-            currentPeriod={displayData.period}
-            currentClock={
-              parseInt(displayData.clock.split(":")[0]) * 60 +
-              parseInt(displayData.clock.split(":")[1])
-            }
-            status={displayData.status}
           />
         </div>
       </div>

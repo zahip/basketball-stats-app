@@ -17,19 +17,69 @@ interface GameControlsProps {
   status: 'scheduled' | 'active' | 'paused' | 'completed';
 }
 
+interface SavedGameState {
+  period: number;
+  clockSeconds: number;
+  isRunning: boolean;
+}
+
 export function GameControls({ gameId, currentPeriod, currentClock, status }: GameControlsProps) {
   const [clockSeconds, setClockSeconds] = useState(currentClock);
   const [period, setPeriod] = useState(currentPeriod);
   const [isRunning, setIsRunning] = useState(status === 'active');
+  const [isInitialized, setIsInitialized] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Sync with props when they change (from real-time updates)
+  // Load persisted state from localStorage on mount
   useEffect(() => {
-    setClockSeconds(currentClock);
-    setPeriod(currentPeriod);
+    try {
+      const storageKey = `game_controls_${gameId}`;
+      const savedState = localStorage.getItem(storageKey);
+      if (savedState) {
+        const parsed: SavedGameState = JSON.parse(savedState);
+        setClockSeconds(parsed.clockSeconds);
+        setPeriod(parsed.period);
+        setIsRunning(parsed.isRunning);
+        console.log('✅ Restored game state from localStorage:', parsed);
+      }
+    } catch (error) {
+      console.error('Failed to restore game state from localStorage:', error);
+    }
+    setIsInitialized(true);
+  }, [gameId]);
+
+  // Persist state to localStorage whenever it changes
+  useEffect(() => {
+    if (!isInitialized) return; // Skip first render
+
+    try {
+      const storageKey = `game_controls_${gameId}`;
+      const stateToSave: SavedGameState = {
+        period,
+        clockSeconds,
+        isRunning,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(stateToSave));
+      console.log('💾 Saved game state to localStorage:', stateToSave);
+    } catch (error) {
+      console.error('Failed to save game state to localStorage:', error);
+    }
+  }, [gameId, period, clockSeconds, isRunning, isInitialized]);
+
+  // Sync with props when they change (from real-time updates)
+  // Only update if the values are significantly different (not from our own saves)
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Only update from API if period/clock are different from our local state
+    // This prevents overwriting user's manual time adjustments
+    if (currentPeriod !== period || currentClock !== clockSeconds) {
+      setClockSeconds(currentClock);
+      setPeriod(currentPeriod);
+    }
     setIsRunning(status === 'active');
-  }, [currentClock, currentPeriod, status]);
+  }, [status, isInitialized]);
 
   // Clock countdown effect
   useEffect(() => {
