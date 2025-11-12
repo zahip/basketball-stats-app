@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { gamesApi } from '@/lib/api-client';
-import { Play, Pause, SkipForward, RotateCcw, Flag } from 'lucide-react';
+import { Play, Pause, SkipForward, RotateCcw, Flag, Settings } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface GameControlsProps {
   gameId: string;
@@ -23,11 +24,149 @@ interface SavedGameState {
   isRunning: boolean;
 }
 
+// Advanced Controls Component (used in both Sheet and Dialog)
+function AdvancedControlsContent({
+  clockSeconds,
+  period,
+  isRunning,
+  status,
+  onSetTime,
+  onResetClock,
+  onNextPeriod,
+  onEndGame,
+}: {
+  clockSeconds: number;
+  period: number;
+  isRunning: boolean;
+  status: string;
+  onSetTime: (minutes: number) => void;
+  onResetClock: () => void;
+  onNextPeriod: () => void;
+  onEndGame: () => void;
+}) {
+  const formatClock = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Current Status */}
+      <div className="bg-slate-100 dark:bg-slate-900 rounded-lg p-4 text-center">
+        <div className="text-sm text-muted-foreground mb-1">Period {period}</div>
+        <div className="text-4xl font-bold font-mono tracking-wider">
+          {formatClock(clockSeconds)}
+        </div>
+        <div className="mt-2">
+          <Badge
+            variant={
+              isRunning
+                ? 'default'
+                : clockSeconds === 0
+                ? 'destructive'
+                : 'secondary'
+            }
+          >
+            {isRunning ? 'RUNNING' : clockSeconds === 0 ? 'ENDED' : 'PAUSED'}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Quick Time Sets */}
+      <div>
+        <h4 className="text-sm font-semibold mb-3">Quick Set Time</h4>
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            onClick={() => onSetTime(10)}
+            size="sm"
+            variant="outline"
+            disabled={status === 'completed'}
+          >
+            10:00
+          </Button>
+          <Button
+            onClick={() => onSetTime(5)}
+            size="sm"
+            variant="outline"
+            disabled={status === 'completed'}
+          >
+            5:00
+          </Button>
+          <Button
+            onClick={() => onSetTime(2)}
+            size="sm"
+            variant="outline"
+            disabled={status === 'completed'}
+          >
+            2:00
+          </Button>
+          <Button
+            onClick={() => onSetTime(1)}
+            size="sm"
+            variant="outline"
+            disabled={status === 'completed'}
+          >
+            1:00
+          </Button>
+        </div>
+      </div>
+
+      {/* Period Controls */}
+      <div>
+        <h4 className="text-sm font-semibold mb-3">Period Controls</h4>
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={onNextPeriod}
+            variant="outline"
+            disabled={status === 'completed'}
+            className="w-full"
+          >
+            <SkipForward className="w-4 h-4 mr-2" />
+            Next Period
+          </Button>
+          <Button
+            onClick={onResetClock}
+            variant="outline"
+            disabled={status === 'completed'}
+            className="w-full"
+          >
+            <RotateCcw className="w-4 h-4 mr-2" />
+            Reset Clock
+          </Button>
+        </div>
+      </div>
+
+      {/* End Game */}
+      <div>
+        <h4 className="text-sm font-semibold mb-3 text-destructive">Danger Zone</h4>
+        <Button
+          onClick={onEndGame}
+          variant="destructive"
+          disabled={status === 'completed'}
+          className="w-full"
+        >
+          <Flag className="w-4 h-4 mr-2" />
+          End Game
+        </Button>
+      </div>
+
+      {status === 'completed' && (
+        <div className="bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-lg p-3 text-sm text-center">
+          Game is finished. Controls are disabled.
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GameControls({ gameId, currentPeriod, currentClock, status }: GameControlsProps) {
   const [clockSeconds, setClockSeconds] = useState(currentClock);
   const [period, setPeriod] = useState(currentPeriod);
   const [isRunning, setIsRunning] = useState(status === 'active');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -68,12 +207,10 @@ export function GameControls({ gameId, currentPeriod, currentClock, status }: Ga
   }, [gameId, period, clockSeconds, isRunning, isInitialized]);
 
   // Sync with props when they change (from real-time updates)
-  // Only update if the values are significantly different (not from our own saves)
   useEffect(() => {
     if (!isInitialized) return;
 
     // Only update from API if period/clock are different from our local state
-    // This prevents overwriting user's manual time adjustments
     if (currentPeriod !== period || currentClock !== clockSeconds) {
       setClockSeconds(currentClock);
       setPeriod(currentPeriod);
@@ -150,6 +287,8 @@ export function GameControls({ gameId, currentPeriod, currentClock, status }: Ga
       title: 'Period Advanced',
       description: `Now in Period ${newPeriod}`,
     });
+    setIsSheetOpen(false);
+    setIsDialogOpen(false);
   };
 
   const handleResetClock = () => {
@@ -186,135 +325,124 @@ export function GameControls({ gameId, currentPeriod, currentClock, status }: Ga
       title: 'Game Ended',
       description: 'Game status set to FINAL',
     });
+    setIsSheetOpen(false);
+    setIsDialogOpen(false);
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Game Controls</CardTitle>
-        <CardDescription>Manage period, clock, and game status</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Clock Display */}
-        <div className="bg-slate-900 dark:bg-slate-950 text-white rounded-lg p-6 text-center">
-          <div className="text-sm mb-1 opacity-75">Period {period}</div>
-          <div className="text-5xl font-bold font-mono tracking-wider">
-            {formatClock(clockSeconds)}
-          </div>
-          <div className="mt-2">
-            <span
-              className={`inline-block px-3 py-1 rounded text-xs font-semibold ${
+    <Card className="mb-4">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between gap-3">
+          {/* Compact Clock Display - Always Visible */}
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="bg-slate-900 dark:bg-slate-950 text-white rounded-md px-3 py-2 min-w-0">
+              <div className="text-xs opacity-75 leading-none mb-0.5">P{period}</div>
+              <div className="text-xl md:text-2xl font-bold font-mono tracking-tight leading-none">
+                {formatClock(clockSeconds)}
+              </div>
+            </div>
+            <Badge
+              variant={
                 isRunning
-                  ? 'bg-green-600'
+                  ? 'default'
                   : clockSeconds === 0
-                  ? 'bg-red-600'
-                  : 'bg-yellow-600'
-              }`}
+                  ? 'destructive'
+                  : 'secondary'
+              }
+              className="hidden sm:inline-flex"
             >
               {isRunning ? 'RUNNING' : clockSeconds === 0 ? 'ENDED' : 'PAUSED'}
-            </span>
+            </Badge>
           </div>
-        </div>
 
-        {/* Primary Controls */}
-        <div className="grid grid-cols-2 gap-2">
+          {/* Primary Action - Start/Pause */}
           <Button
             onClick={handleStartPause}
-            size="lg"
+            size="default"
             variant={isRunning ? 'destructive' : 'default'}
             disabled={status === 'completed'}
+            className="shrink-0"
           >
             {isRunning ? (
               <>
                 <Pause className="w-4 h-4 mr-2" />
-                Pause
+                <span className="hidden sm:inline">Pause</span>
               </>
             ) : (
               <>
                 <Play className="w-4 h-4 mr-2" />
-                Start
+                <span className="hidden sm:inline">Start</span>
               </>
             )}
           </Button>
-          <Button
-            onClick={handleNextPeriod}
-            size="lg"
-            variant="outline"
-            disabled={status === 'completed'}
-          >
-            <SkipForward className="w-4 h-4 mr-2" />
-            Next Period
-          </Button>
-        </div>
 
-        {/* Quick Time Sets */}
-        <div>
-          <Label className="text-sm mb-2 block">Quick Set Time</Label>
-          <div className="grid grid-cols-4 gap-2">
-            <Button
-              onClick={() => handleSetTime(10)}
-              size="sm"
-              variant="outline"
-              disabled={status === 'completed'}
-            >
-              10:00
-            </Button>
-            <Button
-              onClick={() => handleSetTime(5)}
-              size="sm"
-              variant="outline"
-              disabled={status === 'completed'}
-            >
-              5:00
-            </Button>
-            <Button
-              onClick={() => handleSetTime(2)}
-              size="sm"
-              variant="outline"
-              disabled={status === 'completed'}
-            >
-              2:00
-            </Button>
-            <Button
-              onClick={() => handleSetTime(1)}
-              size="sm"
-              variant="outline"
-              disabled={status === 'completed'}
-            >
-              1:00
-            </Button>
-          </div>
-        </div>
+          {/* Mobile: Sheet (Drawer from bottom) */}
+          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                className="shrink-0 lg:hidden"
+                disabled={status === 'completed'}
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+              <SheetHeader>
+                <SheetTitle>Game Controls</SheetTitle>
+                <SheetDescription>
+                  Manage period, clock, and game settings
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-6">
+                <AdvancedControlsContent
+                  clockSeconds={clockSeconds}
+                  period={period}
+                  isRunning={isRunning}
+                  status={status}
+                  onSetTime={handleSetTime}
+                  onResetClock={handleResetClock}
+                  onNextPeriod={handleNextPeriod}
+                  onEndGame={handleEndGame}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
 
-        {/* Secondary Controls */}
-        <div className="flex gap-2">
-          <Button
-            onClick={handleResetClock}
-            variant="outline"
-            size="sm"
-            className="flex-1"
-            disabled={status === 'completed'}
-          >
-            <RotateCcw className="w-3 h-3 mr-2" />
-            Reset Clock
-          </Button>
-          <Button
-            onClick={handleEndGame}
-            variant="destructive"
-            size="sm"
-            className="flex-1"
-            disabled={status === 'completed'}
-          >
-            <Flag className="w-3 h-3 mr-2" />
-            End Game
-          </Button>
+          {/* Desktop: Dialog (Modal) */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="outline"
+                size="default"
+                className="shrink-0 hidden lg:flex"
+                disabled={status === 'completed'}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                More
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Game Controls</DialogTitle>
+                <DialogDescription>
+                  Manage period, clock, and game settings
+                </DialogDescription>
+              </DialogHeader>
+              <AdvancedControlsContent
+                clockSeconds={clockSeconds}
+                period={period}
+                isRunning={isRunning}
+                status={status}
+                onSetTime={handleSetTime}
+                onResetClock={handleResetClock}
+                onNextPeriod={handleNextPeriod}
+                onEndGame={handleEndGame}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
-
-        {status === 'completed' && (
-          <div className="bg-blue-100 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded p-3 text-sm text-center">
-            Game is finished. Controls are disabled.
-          </div>
-        )}
       </CardContent>
     </Card>
   );
