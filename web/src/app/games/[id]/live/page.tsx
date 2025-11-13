@@ -15,6 +15,7 @@ import { BoxScore } from "@/components/game/box-score";
 import { GameControls } from "@/components/game/game-controls";
 import { PlayByPlay } from "@/components/game/play-by-play";
 import { TeamSelector } from "@/components/game/team-selector";
+import { ScoreDisplay } from "@/components/game/score-display";
 import { eventQueueManager } from "@/lib/offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeGame } from "@/hooks/use-realtime-game";
@@ -794,7 +795,19 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
   return (
     <div className="container mx-auto p-2 sm:p-4 max-w-6xl">
-      {/* Game Controls - Top of Page (includes score display) */}
+      {/* Modern Score Display */}
+      <ScoreDisplay
+        homeTeam={displayData.homeTeam}
+        awayTeam={displayData.awayTeam}
+        homeScore={displayData.homeScore}
+        awayScore={displayData.awayScore}
+        period={displayData.period}
+        clock={displayData.clock}
+        status={displayData.status}
+        className="mb-4"
+      />
+
+      {/* Game Controls */}
       <GameControls
         gameId={gameId}
         currentPeriod={displayData.period}
@@ -810,20 +823,20 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       />
 
       {/* Stats Quick Access - Top Buttons */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-3 mb-4">
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          className="gap-1.5 text-xs h-8"
+          className="gap-1.5 text-xs font-semibold bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
           onClick={() => setBoxScoreOpen(true)}
         >
           <span>📈</span> Box Score
         </Button>
 
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
-          className="gap-1.5 text-xs h-8"
+          className="gap-1.5 text-xs font-semibold bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
           onClick={() => setPlayByPlayOpen(true)}
         >
           <span>📝</span> Play-by-Play
