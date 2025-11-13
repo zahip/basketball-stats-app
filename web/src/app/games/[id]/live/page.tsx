@@ -838,10 +838,10 @@ function LiveGameContent({ gameId }: { gameId: string }) {
               <span>📝</span> Play-by-Play
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-[420px] p-5 overflow-y-auto">
-            <SheetHeader className="mb-6">
+          <SheetContent side="right" className="w-full sm:max-w-[500px] p-4 overflow-y-auto max-h-screen">
+            <SheetHeader className="mb-4">
               <SheetTitle className="text-lg font-bold">📝 Play-by-Play</SheetTitle>
-              <SheetDescription>Event timeline</SheetDescription>
+              <SheetDescription>Complete event timeline</SheetDescription>
             </SheetHeader>
             <PlayByPlay gameId={gameId} />
           </SheetContent>
