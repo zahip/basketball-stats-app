@@ -29,6 +29,7 @@ model Player {
   firstName String
   lastName  String
   position  String?
+  avatarUrl String? // URL or base64 data for player avatar
   active    Boolean @default(true)
   team      Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
 

@@ -4,12 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2 } from 'lucide-react';
+import { PlayerAvatar } from '@/components/ui/player-avatar';
 
 interface PlayerInfo {
   firstName: string;
   lastName: string;
   jersey: number;
   position: string | null;
+  avatarUrl?: string;
 }
 
 interface BoxScorePlayerData {
@@ -323,7 +325,19 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                             {player.player?.jersey || 'N/A'}
                           </td>
                           <td className="py-2 px-2 font-medium text-left">
-                            {player.player ? `${player.player.firstName} ${player.player.lastName}` : 'Unknown'}
+                            <div className="flex items-center gap-2">
+                              {player.player && (
+                                <PlayerAvatar
+                                  firstName={player.player.firstName}
+                                  lastName={player.player.lastName}
+                                  src={player.player.avatarUrl}
+                                  className="h-8 w-8"
+                                />
+                              )}
+                              <span>
+                                {player.player ? `${player.player.firstName} ${player.player.lastName}` : 'Unknown'}
+                              </span>
+                            </div>
                           </td>
                           <td className="text-center py-2 px-1.5 font-bold text-lg">
                             {player.pts}

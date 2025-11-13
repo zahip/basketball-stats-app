@@ -53,7 +53,8 @@ boxscore.get('/:gameId/boxscore/players', async (c) => {
           firstName: player.firstName,
           lastName: player.lastName,
           jersey: player.jersey,
-          position: player.position
+          position: player.position,
+          avatarUrl: player.avatarUrl
         } : null,
         advanced: calculateAdvancedStats(boxScore)
       }
@@ -110,7 +111,8 @@ boxscore.get('/:gameId/boxscore', async (c) => {
           firstName: player.firstName,
           lastName: player.lastName,
           jersey: player.jersey,
-          position: player.position
+          position: player.position,
+          avatarUrl: player.avatarUrl
         } : null,
         advanced: calculateAdvancedStats(boxScore)
       }

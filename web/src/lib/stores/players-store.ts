@@ -8,6 +8,7 @@ export interface Player {
   position: 'PG' | 'SG' | 'SF' | 'PF' | 'C'
   height?: string
   weight?: string
+  avatar?: string // URL or base64 data
   isActive: boolean
 }
 
