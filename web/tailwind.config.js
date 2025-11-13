@@ -51,6 +51,19 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        // Basketball-specific colors
+        'home-team': "hsl(var(--home-team))",
+        'away-team': "hsl(var(--away-team))",
+        'court-light': "hsl(var(--court-light))",
+        'court-dark': "hsl(var(--court-dark))",
       },
       borderRadius: {
         lg: "var(--radius)",

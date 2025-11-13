@@ -4,26 +4,59 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Main backgrounds */
+    --background: 220 17% 97%;          /* Light blue-gray #F7F8FA */
+    --foreground: 222 47% 11%;          /* Dark text */
+
+    /* Card styling - elevated white */
+    --card: 0 0% 100%;                  /* Pure white */
+    --card-foreground: 222 47% 11%;     /* Dark text on cards */
+
+    /* Popover (dropdowns, dialogs) */
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - Vibrant Purple (matching design system) */
+    --primary: 262 83% 58%;             /* #7C3AED vibrant purple */
+    --primary-foreground: 0 0% 100%;    /* White text */
+
+    /* Secondary - Light purple/lavender backgrounds */
+    --secondary: 262 90% 97%;           /* Light purple #F7F5FF */
+    --secondary-foreground: 262 80% 40%; /* Purple text */
+
+    /* Muted - Subtle backgrounds */
+    --muted: 220 17% 96%;               /* Very light blue-gray */
+    --muted-foreground: 215 16% 47%;    /* Medium gray text */
+
+    /* Accent - Light blue accents */
+    --accent: 212 100% 97%;             /* Light blue #F0F9FF */
+    --accent-foreground: 212 100% 40%;  /* Bright blue text */
+
+    /* Success - Basketball green (for made shots) */
+    --success: 142 76% 36%;             /* Green #16A34A */
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - Basketball orange/yellow */
+    --warning: 38 92% 50%;              /* Orange #F59E0B */
+    --warning-foreground: 0 0% 100%;
+
+    /* Destructive - Red (for misses, errors) */
+    --destructive: 0 84% 60%;           /* Red #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 220 13% 91%;              /* Light border #E5E7EB */
+    --input: 220 13% 96%;               /* Light input bg */
+    --ring: 262 83% 58%;                /* Purple focus ring */
+
+    /* Border radius - larger, more modern */
+    --radius: 0.75rem;                  /* 12px instead of 8px */
+
+    /* Basketball-specific colors */
+    --home-team: 262 83% 58%;           /* Purple for home team */
+    --away-team: 212 100% 48%;          /* Blue for away team */
+    --court-light: 45 42% 88%;          /* Light tan #EDE3D0 */
+    --court-dark: 35 30% 78%;           /* Darker tan #D9C7AB */
   }
 
   .dark {
