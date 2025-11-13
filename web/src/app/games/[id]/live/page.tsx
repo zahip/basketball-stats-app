@@ -12,6 +12,7 @@ import { PlayersGrid } from "@/components/game/players-grid";
 import { BoxScore } from "@/components/game/box-score";
 import { GameControls } from "@/components/game/game-controls";
 import { PlayByPlay } from "@/components/game/play-by-play";
+import { TeamSelector } from "@/components/game/team-selector";
 import { eventQueueManager } from "@/lib/offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeGame } from "@/hooks/use-realtime-game";
@@ -122,6 +123,7 @@ function calculateStatDelta(eventType: string): StatDelta {
 
 function LiveGameContent({ gameId }: { gameId: string }) {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<'home' | 'away'>('home');
   const [gameData, setGameData] = useState({
     id: gameId,
     homeTeam: "Your Team",
@@ -398,7 +400,8 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   };
 
   const handleAction = async (eventType: string, data: any) => {
-    if (!selectedPlayer) {
+    // For away team, no player selection is required
+    if (selectedTeam === 'home' && !selectedPlayer) {
       toast({
         title: "Selection Required",
         description: "Please select a player first",
@@ -417,15 +420,18 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     let previousBoxScore: unknown = null;
 
     try {
-      const player = players.find((p) => p.id === selectedPlayer);
+      let player = null;
+      if (selectedTeam === 'home') {
+        player = players.find((p) => p.id === selectedPlayer);
 
-      if (!player) {
-        toast({
-          title: "Player Not Found",
-          description: "Selected player not found in roster",
-          variant: "destructive",
-        });
-        return;
+        if (!player) {
+          toast({
+            title: "Player Not Found",
+            description: "Selected player not found in roster",
+            variant: "destructive",
+          });
+          return;
+        }
       }
 
       // Convert clock time to seconds (e.g., "08:42" -> 522 seconds)
@@ -436,7 +442,8 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       console.log("Recording event:", {
         eventType,
-        player: { id: player.id, number: player.number, name: player.name },
+        player: player ? { id: player.id, number: player.number, name: player.name } : null,
+        team: selectedTeam,
         gameId,
         period: gameData.period,
         clock: gameData.clock,
@@ -455,6 +462,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       // OPTIMISTIC UPDATE #1: Update game score immediately
       if (statDelta.scoreIncrement > 0) {
         // Optimistically update game score in cache
+        const scoreField = selectedTeam === 'home' ? 'ourScore' : 'oppScore';
         queryClient.setQueryData(["game", gameId], (old: unknown) => {
           if (!old) return old;
           const oldData = old as { id: string; game: Record<string, unknown> };
@@ -463,7 +471,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
             ...oldData,
             game: {
               ...oldData.game,
-              ourScore: ((oldData.game.ourScore as number) ?? 0) + statDelta.scoreIncrement,
+              [scoreField]: ((oldData.game[scoreField] as number) ?? 0) + statDelta.scoreIncrement,
             },
           };
         });
@@ -483,7 +491,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           });
         }
 
-        console.log(`⚡ Optimistic score update: +${statDelta.scoreIncrement} points`);
+        console.log(`⚡ Optimistic score update: +${statDelta.scoreIncrement} points (${selectedTeam} team)`);
       }
 
       // OPTIMISTIC UPDATE #2: Update box score immediately
@@ -518,69 +526,75 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           }>;
         };
 
-        // Safety check: If playerStats doesn't exist, initialize it
-        if (!oldData.playerStats) {
+        // Safety check: If box score data doesn't exist, skip optimistic update
+        if (!oldData.teamStats) {
           console.log("⚠️ Box score data not loaded yet, skipping optimistic update");
           return old;
         }
 
-        // Find or create player stats entry
-        const playerIndex = oldData.playerStats.findIndex(
-          (p) => p.playerNumber === player.number
-        );
+        // Determine which team to update
+        const teamSide = selectedTeam === 'home' ? 'US' : 'OPP';
+        let updatedPlayerStats = oldData.playerStats || [];
 
-        let updatedPlayerStats = [...oldData.playerStats];
+        // Only update player stats if home team (away team doesn't track individual players)
+        if (selectedTeam === 'home' && player && oldData.playerStats) {
+          const playerIndex = oldData.playerStats.findIndex(
+            (p) => p.playerNumber === player.number
+          );
 
-        if (playerIndex >= 0) {
-          // Update existing player stats
-          const currentStats = updatedPlayerStats[playerIndex];
-          updatedPlayerStats[playerIndex] = {
-            ...currentStats,
-            points: currentStats.points + statDelta.scoreIncrement,
-            fgm: currentStats.fgm + (statDelta.fgmIncrement ?? 0),
-            fga: currentStats.fga + (statDelta.fgaIncrement ?? 0),
-            fg3m: currentStats.fg3m + (statDelta.fg3mIncrement ?? 0),
-            fg3a: currentStats.fg3a + (statDelta.fg3aIncrement ?? 0),
-            ftm: currentStats.ftm + (statDelta.ftmIncrement ?? 0),
-            fta: currentStats.fta + (statDelta.ftaIncrement ?? 0),
-            oreb: currentStats.oreb + (statDelta.orebIncrement ?? 0),
-            dreb: currentStats.dreb + (statDelta.drebIncrement ?? 0),
-            reb: currentStats.reb + (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
-            ast: currentStats.ast + (statDelta.astIncrement ?? 0),
-            stl: currentStats.stl + (statDelta.stlIncrement ?? 0),
-            blk: currentStats.blk + (statDelta.blkIncrement ?? 0),
-            tov: currentStats.tov + (statDelta.tovIncrement ?? 0),
-            pf: currentStats.pf + (statDelta.pfIncrement ?? 0),
-          };
-        } else {
-          // Create new player stats entry (first event for this player)
-          updatedPlayerStats.push({
-            playerId: player.id,
-            playerNumber: player.number,
-            playerName: player.name,
-            points: statDelta.scoreIncrement,
-            fgm: statDelta.fgmIncrement ?? 0,
-            fga: statDelta.fgaIncrement ?? 0,
-            fg3m: statDelta.fg3mIncrement ?? 0,
-            fg3a: statDelta.fg3aIncrement ?? 0,
-            ftm: statDelta.ftmIncrement ?? 0,
-            fta: statDelta.ftaIncrement ?? 0,
-            oreb: statDelta.orebIncrement ?? 0,
-            dreb: statDelta.drebIncrement ?? 0,
-            reb: (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
-            ast: statDelta.astIncrement ?? 0,
-            stl: statDelta.stlIncrement ?? 0,
-            blk: statDelta.blkIncrement ?? 0,
-            tov: statDelta.tovIncrement ?? 0,
-            pf: statDelta.pfIncrement ?? 0,
-            plusMinus: 0,
-            minutesPlayed: 0,
-          });
+          updatedPlayerStats = [...oldData.playerStats];
+
+          if (playerIndex >= 0) {
+            // Update existing player stats
+            const currentStats = updatedPlayerStats[playerIndex];
+            updatedPlayerStats[playerIndex] = {
+              ...currentStats,
+              points: currentStats.points + statDelta.scoreIncrement,
+              fgm: currentStats.fgm + (statDelta.fgmIncrement ?? 0),
+              fga: currentStats.fga + (statDelta.fgaIncrement ?? 0),
+              fg3m: currentStats.fg3m + (statDelta.fg3mIncrement ?? 0),
+              fg3a: currentStats.fg3a + (statDelta.fg3aIncrement ?? 0),
+              ftm: currentStats.ftm + (statDelta.ftmIncrement ?? 0),
+              fta: currentStats.fta + (statDelta.ftaIncrement ?? 0),
+              oreb: currentStats.oreb + (statDelta.orebIncrement ?? 0),
+              dreb: currentStats.dreb + (statDelta.drebIncrement ?? 0),
+              reb: currentStats.reb + (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
+              ast: currentStats.ast + (statDelta.astIncrement ?? 0),
+              stl: currentStats.stl + (statDelta.stlIncrement ?? 0),
+              blk: currentStats.blk + (statDelta.blkIncrement ?? 0),
+              tov: currentStats.tov + (statDelta.tovIncrement ?? 0),
+              pf: currentStats.pf + (statDelta.pfIncrement ?? 0),
+            };
+          } else {
+            // Create new player stats entry (first event for this player)
+            updatedPlayerStats.push({
+              playerId: player.id,
+              playerNumber: player.number,
+              playerName: player.name,
+              points: statDelta.scoreIncrement,
+              fgm: statDelta.fgmIncrement ?? 0,
+              fga: statDelta.fgaIncrement ?? 0,
+              fg3m: statDelta.fg3mIncrement ?? 0,
+              fg3a: statDelta.fg3aIncrement ?? 0,
+              ftm: statDelta.ftmIncrement ?? 0,
+              fta: statDelta.ftaIncrement ?? 0,
+              oreb: statDelta.orebIncrement ?? 0,
+              dreb: statDelta.drebIncrement ?? 0,
+              reb: (statDelta.orebIncrement ?? 0) + (statDelta.drebIncrement ?? 0),
+              ast: statDelta.astIncrement ?? 0,
+              stl: statDelta.stlIncrement ?? 0,
+              blk: statDelta.blkIncrement ?? 0,
+              tov: statDelta.tovIncrement ?? 0,
+              pf: statDelta.pfIncrement ?? 0,
+              plusMinus: 0,
+              minutesPlayed: 0,
+            });
+          }
         }
 
-        // Update team stats as well
+        // Update team stats for the selected team (both home and away)
         const updatedTeamStats = (oldData.teamStats || []).map((team) => {
-          if (team.teamSide === 'US') {
+          if (team.teamSide === teamSide) {
             return {
               ...team,
               points: team.points + statDelta.scoreIncrement,
@@ -603,7 +617,10 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           return team;
         });
 
-        console.log(`⚡ Optimistic box score update for player #${player.number}`);
+        const logMessage = selectedTeam === 'home'
+          ? `⚡ Optimistic box score update for player #${player?.number}`
+          : `⚡ Optimistic away team box score update`;
+        console.log(logMessage);
 
         return {
           ...oldData,
@@ -612,13 +629,14 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         };
       });
 
-      // Add event to offline queue (always for "your team")
-      // Use player number as ID since that's more likely what backend expects
+      // Add event to offline queue
+      // For home team: use player number as ID
+      // For away team: no player ID (null)
       await eventQueueManager.addEvent(
         gameId,
         eventType,
-        player.number.toString(), // Use player number instead of UUID
-        "home", // Your team is always considered "home" in the data
+        selectedTeam === 'home' ? player!.number.toString() : null,
+        selectedTeam, // 'home' or 'away'
         {
           ...data,
           period: gameData.period,
@@ -636,9 +654,9 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       toast({
         title: "Event Recorded",
-        description: `${eventType.replace(/_/g, " ")} recorded for player #${
-          player.number
-        }`,
+        description: selectedTeam === 'home'
+          ? `${eventType.replace(/_/g, " ")} recorded for player #${player!.number}`
+          : `${eventType.replace(/_/g, " ")} recorded for ${displayData.awayTeam}`,
       });
 
       // Keep player selected for rapid stat entry
@@ -852,21 +870,42 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       {/* Main Game Interface */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Left Column: Action Grid */}
-        <div className="lg:col-span-2">
+        {/* Left Column: Team Selector + Action Grid */}
+        <div className="lg:col-span-2 space-y-4">
+          <TeamSelector
+            selectedTeam={selectedTeam}
+            onTeamSelect={setSelectedTeam}
+            homeTeamName={displayData.homeTeam}
+            awayTeamName={displayData.awayTeam}
+          />
           <ActionGrid
             selectedPlayer={selectedPlayer}
             onAction={handleAction}
             disabled={displayData.status !== "active"}
+            selectedTeam={selectedTeam}
           />
         </div>
 
-        {/* Right Column: Players Grid */}
+        {/* Right Column: Players Grid (conditionally shown for home team) */}
         <div className="space-y-4">
-          <PlayersGrid
-            selectedPlayer={selectedPlayer}
-            onPlayerSelect={handlePlayerSelect}
-          />
+          {selectedTeam === 'home' ? (
+            <PlayersGrid
+              selectedPlayer={selectedPlayer}
+              onPlayerSelect={handlePlayerSelect}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-center">
+                  <div className="text-3xl mb-2">👥</div>
+                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                    {displayData.awayTeam}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Team totals only</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

@@ -8,9 +8,10 @@ interface ActionGridProps {
   selectedPlayer: string | null
   onAction: (eventType: string, data?: any) => void
   disabled?: boolean
+  selectedTeam?: 'home' | 'away'
 }
 
-export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridProps) {
+export function ActionGrid({ selectedPlayer, onAction, disabled, selectedTeam = 'home' }: ActionGridProps) {
   const shotActions = [
     { type: 'SHOT_2_MADE', label: '🏀 2PT Made', color: 'bg-green-600' },
     { type: 'SHOT_2_MISS', label: '❌ 2PT Miss', color: 'bg-red-600' },
@@ -38,7 +39,7 @@ export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridPro
     { type: 'SUB_OUT', label: '⬅️ Sub Out', color: 'bg-blue-600' },
   ]
 
-  const isActionDisabled = disabled || !selectedPlayer
+  const isActionDisabled = disabled || (selectedTeam === 'home' && !selectedPlayer)
 
   const handleAction = (actionType: string) => {
     if (isActionDisabled) return
@@ -66,14 +67,20 @@ export function ActionGrid({ selectedPlayer, onAction, disabled }: ActionGridPro
         <CardContent className="p-3">
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-2">
-              <span>Selected:</span>
-              {selectedPlayer ? (
-                <Badge variant="outline">Player #{selectedPlayer}</Badge>
-              ) : (
-                <span className="text-muted-foreground">No player selected</span>
+              <span className="font-medium">
+                {selectedTeam === 'home' ? '🏀 Your Team' : '👥 Opponent'}
+              </span>
+              {selectedTeam === 'home' && (
+                <>
+                  {selectedPlayer ? (
+                    <Badge variant="outline">Player #{selectedPlayer}</Badge>
+                  ) : (
+                    <span className="text-muted-foreground">No player selected</span>
+                  )}
+                </>
               )}
             </div>
-            {isActionDisabled && (
+            {isActionDisabled && selectedTeam === 'home' && (
               <span className="text-yellow-600 text-xs">⚠️ Select a player first</span>
             )}
           </div>

@@ -6,7 +6,7 @@ export interface QueuedEvent {
   id: string
   gameId: string
   eventType: string
-  playerId: string
+  playerId: string | null
   team: 'home' | 'away'
   timestamp: number
   ingestKey: string
@@ -57,7 +57,7 @@ export class EventQueueManager {
     return mapping[eventType] || eventType
   }
 
-  async addEvent(gameId: string, eventType: string, playerId: string, team: 'home' | 'away', data?: any): Promise<string> {
+  async addEvent(gameId: string, eventType: string, playerId: string | null, team: 'home' | 'away', data?: any): Promise<string> {
     const ingestKey = uuidv4()
     const event: QueuedEvent = {
       id: uuidv4(),
@@ -132,10 +132,11 @@ export class EventQueueManager {
           await this.syncSingleEvent(event)
           syncedCount++
         } catch (error) {
-          console.log(`Failed to sync event ${event.id}:`, error.message)
-          
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          console.log(`Failed to sync event ${event.id}:`, errorMessage)
+
           // If API is not available, stop trying to sync more events
-          if (error.message === 'API not available') {
+          if (errorMessage === 'API not available') {
             apiAvailable = false
             console.log('API not available - stopping sync attempts')
             break
@@ -191,15 +192,20 @@ export class EventQueueManager {
       const mappedEventType = this.mapEventType(event.eventType)
 
       // Build the event payload matching the backend schema
-      const eventPayload = {
+      // For away team events, omit playerId entirely (don't send null)
+      const eventPayload: any = {
         gameId: event.gameId,
         type: mappedEventType,
-        playerId: event.playerId,
         period: event.data?.period || 1,
         clockSec: event.data?.clockSec || 600,
         teamSide: event.team === 'home' ? 'US' : 'OPP',
         meta: event.data || {},
         ingestKey: event.ingestKey
+      }
+
+      // Only include playerId if it's not null (for home team events)
+      if (event.playerId) {
+        eventPayload.playerId = event.playerId
       }
 
       console.log('Event payload to send:', eventPayload)
@@ -258,7 +264,8 @@ export class EventQueueManager {
       await offlineQueue.events.update(event.id, { status: 'synced' })
     } catch (error) {
       // Handle network errors (API not available)
-      if (error instanceof TypeError || error.message.includes('fetch')) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      if (error instanceof TypeError || errorMessage.includes('fetch')) {
         console.log(`API not available - keeping event ${event.id} in queue`)
         throw new Error('API not available')
       }

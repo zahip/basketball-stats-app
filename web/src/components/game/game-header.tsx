@@ -1,24 +1,24 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { useRoleAccess } from '@/lib/auth-context'
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useRoleAccess } from "@/lib/auth-context";
 
 interface GameHeaderProps {
-  gameId: string
-  homeTeam: string
-  awayTeam: string
-  homeScore: number
-  awayScore: number
-  period: number
-  clock: string
-  status: 'scheduled' | 'active' | 'paused' | 'completed'
-  onStartGame?: () => void
-  onPauseGame?: () => void
-  onResumeGame?: () => void
-  onEndPeriod?: () => void
+  gameId: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  period: number;
+  clock: string;
+  status: "scheduled" | "active" | "paused" | "completed";
+  onStartGame?: () => void;
+  onPauseGame?: () => void;
+  onResumeGame?: () => void;
+  onEndPeriod?: () => void;
 }
 
 export function GameHeader({
@@ -33,21 +33,26 @@ export function GameHeader({
   onStartGame,
   onPauseGame,
   onResumeGame,
-  onEndPeriod
+  onEndPeriod,
 }: GameHeaderProps) {
-  const { canManage } = useRoleAccess()
-  
+  const { canManage } = useRoleAccess();
+
   const getStatusDisplay = () => {
     switch (status) {
-      case 'scheduled': return { text: 'Not Started', color: 'bg-blue-500' }
-      case 'active': return { text: 'Live', color: 'bg-green-500' }
-      case 'paused': return { text: 'Paused', color: 'bg-yellow-500' }
-      case 'completed': return { text: 'Final', color: 'bg-gray-500' }
-      default: return { text: status, color: 'bg-gray-500' }
+      case "scheduled":
+        return { text: "Not Started", color: "bg-blue-500" };
+      case "active":
+        return { text: "Live", color: "bg-green-500" };
+      case "paused":
+        return { text: "Paused", color: "bg-yellow-500" };
+      case "completed":
+        return { text: "Final", color: "bg-gray-500" };
+      default:
+        return { text: status, color: "bg-gray-500" };
     }
-  }
+  };
 
-  const statusDisplay = getStatusDisplay()
+  const statusDisplay = getStatusDisplay();
 
   return (
     <Card className="mb-4">
@@ -58,15 +63,15 @@ export function GameHeader({
             <Badge className={`${statusDisplay.color} text-white`}>
               {statusDisplay.text}
             </Badge>
-            
+
             {canManage && (
               <div className="flex gap-2">
-                {status === 'scheduled' && (
+                {status === "scheduled" && (
                   <Button onClick={onStartGame} size="sm">
                     Start Game
                   </Button>
                 )}
-                {status === 'active' && (
+                {status === "active" && (
                   <>
                     <Button onClick={onPauseGame} variant="outline" size="sm">
                       Pause
@@ -76,7 +81,7 @@ export function GameHeader({
                     </Button>
                   </>
                 )}
-                {status === 'paused' && (
+                {status === "paused" && (
                   <Button onClick={onResumeGame} size="sm">
                     Resume
                   </Button>
@@ -91,13 +96,19 @@ export function GameHeader({
               {awayTeam} @ {homeTeam}
             </div>
             <div className="text-4xl font-mono font-bold">
-              <span className={homeScore > awayScore ? 'text-green-600' : ''}>{homeScore}</span>
+              <span className={homeScore > awayScore ? "text-green-600" : ""}>
+                {homeScore}
+              </span>
               <span className="mx-4 text-muted-foreground">-</span>
-              <span className={awayScore > homeScore ? 'text-green-600' : ''}>{awayScore}</span>
+              <span className={awayScore > homeScore ? "text-green-600" : ""}>
+                {awayScore}
+              </span>
             </div>
             <div className="text-lg text-muted-foreground mt-2">
-              {status !== 'scheduled' && (
-                <>Q{period} • {clock}</>
+              {status !== "scheduled" && (
+                <>
+                  Q{period} • {clock}
+                </>
               )}
             </div>
           </div>
@@ -116,5 +127,5 @@ export function GameHeader({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
