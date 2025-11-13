@@ -4,7 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { Loader2, TrendingUp } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface PlayerStats {
   playerId: string;
@@ -66,7 +67,9 @@ interface BoxScoreProps {
 }
 
 export function BoxScore({ gameId }: BoxScoreProps) {
-  const { data: boxScore, isLoading, error } = useQuery<BoxScoreData>({
+  const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
+
+  const { data: boxScore, isLoading, error, refetch } = useQuery<BoxScoreData>({
     queryKey: ['boxscore', gameId],
     queryFn: async () => {
       const response = await apiClient(`/games/${gameId}/boxscore`);
@@ -75,7 +78,8 @@ export function BoxScore({ gameId }: BoxScoreProps) {
       }
       return response.json();
     },
-    refetchInterval: 10000, // Refetch every 10 seconds during live game
+    refetchInterval: 1000, // Refetch every second for live updates
+    staleTime: 0,
   });
 
   const formatPct = (value: number | null) => {
@@ -130,75 +134,83 @@ export function BoxScore({ gameId }: BoxScoreProps) {
 
           {/* Team Stats Tab */}
           <TabsContent value="team" className="space-y-4">
+            {/* Live Indicator */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Live Updates
+              </span>
+            </div>
+
             {/* Team Comparison Table */}
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs md:text-sm">
                 <thead>
-                  <tr className="border-b">
+                  <tr className="border-b bg-slate-50 dark:bg-slate-900/50">
                     <th className="text-left py-2 px-2 font-semibold">Team</th>
-                    <th className="text-center py-2 px-2 font-semibold">PTS</th>
-                    <th className="text-center py-2 px-2 font-semibold">FG</th>
-                    <th className="text-center py-2 px-2 font-semibold">FG%</th>
-                    <th className="text-center py-2 px-2 font-semibold">3P</th>
-                    <th className="text-center py-2 px-2 font-semibold">3P%</th>
-                    <th className="text-center py-2 px-2 font-semibold">FT</th>
-                    <th className="text-center py-2 px-2 font-semibold">FT%</th>
-                    <th className="text-center py-2 px-2 font-semibold">REB</th>
-                    <th className="text-center py-2 px-2 font-semibold">AST</th>
-                    <th className="text-center py-2 px-2 font-semibold">STL</th>
-                    <th className="text-center py-2 px-2 font-semibold">BLK</th>
-                    <th className="text-center py-2 px-2 font-semibold">TOV</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">PTS</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FG</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FG%</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">3P</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">3P%</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FT</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FT%</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">REB</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">AST</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">STL</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">BLK</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">TOV</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ourTeam && (
-                    <tr className="border-b bg-blue-50 dark:bg-blue-950">
-                      <td className="py-2 px-2 font-medium">
-                        {ourTeam.teamName || 'Your Team'}
+                    <tr className="border-b bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-900/40">
+                      <td className="py-2 px-2 font-semibold text-green-900 dark:text-green-100">
+                        🏀 {ourTeam.teamName || 'Your Team'}
                       </td>
-                      <td className="text-center py-2 px-2 font-bold">{ourTeam.points}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5 font-bold text-lg">{ourTeam.points}</td>
+                      <td className="text-center py-2 px-1.5">
                         {ourTeam.fgm}/{ourTeam.fga}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(ourTeam.fgPct)}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.fgPct)}</td>
+                      <td className="text-center py-2 px-1.5">
                         {ourTeam.fg3m}/{ourTeam.fg3a}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(ourTeam.fg3Pct)}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.fg3Pct)}</td>
+                      <td className="text-center py-2 px-1.5">
                         {ourTeam.ftm}/{ourTeam.fta}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(ourTeam.ftPct)}</td>
-                      <td className="text-center py-2 px-2">{ourTeam.reb}</td>
-                      <td className="text-center py-2 px-2">{ourTeam.ast}</td>
-                      <td className="text-center py-2 px-2">{ourTeam.stl}</td>
-                      <td className="text-center py-2 px-2">{ourTeam.blk}</td>
-                      <td className="text-center py-2 px-2">{ourTeam.tov}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.ftPct)}</td>
+                      <td className="text-center py-2 px-1.5 font-semibold">{ourTeam.reb}</td>
+                      <td className="text-center py-2 px-1.5">{ourTeam.ast}</td>
+                      <td className="text-center py-2 px-1.5">{ourTeam.stl}</td>
+                      <td className="text-center py-2 px-1.5">{ourTeam.blk}</td>
+                      <td className="text-center py-2 px-1.5">{ourTeam.tov}</td>
                     </tr>
                   )}
                   {oppTeam && (
-                    <tr className="border-b">
-                      <td className="py-2 px-2 font-medium">
-                        {oppTeam.teamName || 'Opponent'}
+                    <tr className="border-b bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800/40">
+                      <td className="py-2 px-2 font-semibold">
+                        👥 {oppTeam.teamName || 'Opponent'}
                       </td>
-                      <td className="text-center py-2 px-2 font-bold">{oppTeam.points}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5 font-bold text-lg">{oppTeam.points}</td>
+                      <td className="text-center py-2 px-1.5">
                         {oppTeam.fgm}/{oppTeam.fga}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(oppTeam.fgPct)}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.fgPct)}</td>
+                      <td className="text-center py-2 px-1.5">
                         {oppTeam.fg3m}/{oppTeam.fg3a}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(oppTeam.fg3Pct)}</td>
-                      <td className="text-center py-2 px-2">
+                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.fg3Pct)}</td>
+                      <td className="text-center py-2 px-1.5">
                         {oppTeam.ftm}/{oppTeam.fta}
                       </td>
-                      <td className="text-center py-2 px-2">{formatPct(oppTeam.ftPct)}</td>
-                      <td className="text-center py-2 px-2">{oppTeam.reb}</td>
-                      <td className="text-center py-2 px-2">{oppTeam.ast}</td>
-                      <td className="text-center py-2 px-2">{oppTeam.stl}</td>
-                      <td className="text-center py-2 px-2">{oppTeam.blk}</td>
-                      <td className="text-center py-2 px-2">{oppTeam.tov}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.ftPct)}</td>
+                      <td className="text-center py-2 px-1.5 font-semibold">{oppTeam.reb}</td>
+                      <td className="text-center py-2 px-1.5">{oppTeam.ast}</td>
+                      <td className="text-center py-2 px-1.5">{oppTeam.stl}</td>
+                      <td className="text-center py-2 px-1.5">{oppTeam.blk}</td>
+                      <td className="text-center py-2 px-1.5">{oppTeam.tov}</td>
                     </tr>
                   )}
                 </tbody>
@@ -235,28 +247,36 @@ export function BoxScore({ gameId }: BoxScoreProps) {
 
           {/* Player Stats Tab */}
           <TabsContent value="players" className="space-y-4">
+            {/* Live Indicator */}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                Live Updates - {ourPlayers.length} players
+              </span>
+            </div>
+
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-xs md:text-sm">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-2 px-2 font-semibold">#</th>
+                  <tr className="border-b bg-slate-50 dark:bg-slate-900/50">
+                    <th className="text-center py-2 px-1.5 font-semibold w-8">#</th>
                     <th className="text-left py-2 px-2 font-semibold">Player</th>
-                    <th className="text-center py-2 px-2 font-semibold">PTS</th>
-                    <th className="text-center py-2 px-2 font-semibold">FG</th>
-                    <th className="text-center py-2 px-2 font-semibold">3P</th>
-                    <th className="text-center py-2 px-2 font-semibold">FT</th>
-                    <th className="text-center py-2 px-2 font-semibold">REB</th>
-                    <th className="text-center py-2 px-2 font-semibold">AST</th>
-                    <th className="text-center py-2 px-2 font-semibold">STL</th>
-                    <th className="text-center py-2 px-2 font-semibold">BLK</th>
-                    <th className="text-center py-2 px-2 font-semibold">TOV</th>
-                    <th className="text-center py-2 px-2 font-semibold">PF</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">PTS</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FG</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">3P</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">FT</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">REB</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">AST</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">STL</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">BLK</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">TOV</th>
+                    <th className="text-center py-2 px-1.5 font-semibold">PF</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ourPlayers.length === 0 ? (
                     <tr>
-                      <td colSpan={12} className="text-center py-4 text-muted-foreground">
+                      <td colSpan={12} className="text-center py-6 text-muted-foreground text-xs md:text-sm">
                         No player stats recorded yet
                       </td>
                     </tr>
@@ -264,25 +284,44 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                     ourPlayers
                       .sort((a, b) => b.points - a.points) // Sort by points descending
                       .map((player) => (
-                        <tr key={player.playerId} className="border-b hover:bg-slate-50 dark:hover:bg-slate-800">
-                          <td className="py-2 px-2 font-medium">{player.playerNumber}</td>
-                          <td className="py-2 px-2">{player.playerName}</td>
-                          <td className="text-center py-2 px-2 font-bold">{player.points}</td>
-                          <td className="text-center py-2 px-2">
+                        <tr
+                          key={player.playerId}
+                          className="border-b hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
+                        >
+                          <td className="text-center py-2 px-1.5 font-bold text-blue-600 dark:text-blue-400">
+                            {player.playerNumber}
+                          </td>
+                          <td className="py-2 px-2 font-medium text-left">{player.playerName}</td>
+                          <td className="text-center py-2 px-1.5 font-bold text-lg">
+                            {player.points}
+                          </td>
+                          <td className="text-center py-2 px-1.5 text-xs">
                             {player.fgm}/{player.fga}
                           </td>
-                          <td className="text-center py-2 px-2">
+                          <td className="text-center py-2 px-1.5 text-xs">
                             {player.fg3m}/{player.fg3a}
                           </td>
-                          <td className="text-center py-2 px-2">
+                          <td className="text-center py-2 px-1.5 text-xs">
                             {player.ftm}/{player.fta}
                           </td>
-                          <td className="text-center py-2 px-2">{player.reb}</td>
-                          <td className="text-center py-2 px-2">{player.ast}</td>
-                          <td className="text-center py-2 px-2">{player.stl}</td>
-                          <td className="text-center py-2 px-2">{player.blk}</td>
-                          <td className="text-center py-2 px-2">{player.tov}</td>
-                          <td className="text-center py-2 px-2">{player.pf}</td>
+                          <td className="text-center py-2 px-1.5 font-semibold">
+                            {player.reb}
+                          </td>
+                          <td className="text-center py-2 px-1.5">
+                            {player.ast}
+                          </td>
+                          <td className="text-center py-2 px-1.5">
+                            {player.stl}
+                          </td>
+                          <td className="text-center py-2 px-1.5">
+                            {player.blk}
+                          </td>
+                          <td className="text-center py-2 px-1.5">
+                            {player.tov}
+                          </td>
+                          <td className="text-center py-2 px-1.5">
+                            {player.pf}
+                          </td>
                         </tr>
                       ))
                   )}
@@ -291,8 +330,9 @@ export function BoxScore({ gameId }: BoxScoreProps) {
             </div>
 
             {ourPlayers.length > 0 && (
-              <div className="text-xs text-muted-foreground">
-                <p>Sorted by points scored. Minutes played and +/- coming soon!</p>
+              <div className="text-xs text-muted-foreground space-y-1">
+                <p>📊 Sorted by points scored (descending)</p>
+                <p>🔄 Updates automatically - no manual refresh needed</p>
               </div>
             )}
           </TabsContent>
