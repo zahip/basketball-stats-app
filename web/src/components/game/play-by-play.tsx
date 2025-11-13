@@ -2,9 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface GameEvent {
   id: string;
@@ -32,7 +32,7 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
       }
       return response.json();
     },
-    refetchInterval: 5000, // Refetch every 5 seconds during live game
+    refetchInterval: 5000,
   });
 
   const formatClock = (seconds: number) => {
@@ -41,156 +41,161 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatEventType = (eventType: string) => {
-    return eventType
-      .replace(/_/g, ' ')
-      .toLowerCase()
-      .split(' ')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  const getEventDescription = (event: GameEvent): string => {
+    const team = event.teamSide === 'US' ? '🏀 Your Team' : '👥 Opponent';
+    const player = event.playerId ? ` #${event.playerId}` : '';
+    const assist = event.meta?.assistedBy ? ` (Assist: #${event.meta.assistedBy})` : '';
+
+    switch (event.type) {
+      case 'SHOT_2_MADE':
+        return `${team}${player} 2PT Made${assist}`;
+      case 'SHOT_2_MISS':
+        return `${team}${player} 2PT Miss`;
+      case 'SHOT_3_MADE':
+        return `${team}${player} 3PT Made${assist}`;
+      case 'SHOT_3_MISS':
+        return `${team}${player} 3PT Miss`;
+      case 'FT_MADE':
+        return `${team}${player} Free Throw${assist}`;
+      case 'FT_MISS':
+        return `${team}${player} Free Throw Miss`;
+      case 'AST':
+        return `${team}${player} Assist`;
+      case 'REB_O':
+        return `${team}${player} Offensive Rebound`;
+      case 'REB_D':
+        return `${team}${player} Defensive Rebound`;
+      case 'STL':
+        return `${team}${player} Steal`;
+      case 'BLK':
+        return `${team}${player} Block`;
+      case 'TOV':
+        return `${team}${player} Turnover`;
+      case 'FOUL':
+        return `${team}${player} Foul`;
+      case 'SUB_IN':
+        return `${team}${player} Substitution In`;
+      case 'SUB_OUT':
+        return `${team}${player} Substitution Out`;
+      default:
+        return `${team}${player} ${event.type}`;
+    }
   };
 
-  const getEventIcon = (eventType: string | null | undefined) => {
-    if (!eventType) return '•';
+  const getEventEmoji = (eventType: string): string => {
     if (eventType.includes('MADE')) return '✓';
     if (eventType.includes('MISS')) return '✗';
     if (eventType.includes('AST')) return '🎯';
-    if (eventType.includes('REB')) return '🏀';
-    if (eventType.includes('STL')) return '🔒';
-    if (eventType.includes('BLK')) return '🛑';
+    if (eventType.includes('REB_O')) return '↗️';
+    if (eventType.includes('REB_D')) return '↘️';
+    if (eventType.includes('STL')) return '🔥';
+    if (eventType.includes('BLK')) return '🚫';
     if (eventType.includes('TOV')) return '⚠️';
     if (eventType.includes('FOUL')) return '🟨';
     if (eventType.includes('SUB')) return '↔️';
     return '•';
   };
 
-  const getEventColor = (eventType: string | null | undefined, teamSide: string) => {
-    if (!eventType) return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
-
-    const isOurTeam = teamSide === 'US';
-
-    if (eventType.includes('MADE')) {
-      return isOurTeam
-        ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
-        : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800';
-    }
-    if (eventType.includes('MISS')) {
-      return 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700';
-    }
-    if (eventType.includes('AST') || eventType.includes('REB') || eventType.includes('STL') || eventType.includes('BLK')) {
-      return isOurTeam
-        ? 'bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800'
-        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700';
-    }
-    if (eventType.includes('TOV') || eventType.includes('FOUL')) {
-      return isOurTeam
-        ? 'bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800'
-        : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700';
-    }
-    return 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700';
+  const getScorePoints = (eventType: string): number => {
+    if (eventType === 'SHOT_2_MADE' || eventType === 'SHOT_2_MISS') return 0; // Miss doesn't count
+    if (eventType === 'SHOT_2_MADE') return 2;
+    if (eventType === 'SHOT_3_MADE') return 3;
+    if (eventType === 'FT_MADE') return 1;
+    return 0;
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Play-by-Play</CardTitle>
-          <CardDescription>Loading events...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin" />
+      </div>
     );
   }
 
   if (error || !events || !events.events) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Play-by-Play</CardTitle>
-          <CardDescription>No events recorded</CardDescription>
-        </CardHeader>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Failed to load play-by-play. Start recording events to see the feed.
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center text-muted-foreground text-sm">
+        No events recorded yet. Start tracking to see play-by-play!
+      </div>
     );
   }
 
-  // Sort events by period (desc) then clock (asc) - most recent first
+  // Sort events by period (desc) then clock (desc) - most recent first
   const sortedEvents = [...events.events].sort((a, b) => {
     if (a.period !== b.period) return b.period - a.period;
     return b.clockSec - a.clockSec;
   });
 
-  // Group events by period
-  const eventsByPeriod = sortedEvents.reduce((acc, event) => {
-    const period = `Period ${event.period}`;
-    if (!acc[period]) acc[period] = [];
-    acc[period].push(event);
-    return acc;
-  }, {} as Record<string, GameEvent[]>);
+  // Calculate running score as we go through events
+  let ourScore = 0;
+  let oppScore = 0;
+
+  // Find final scores
+  sortedEvents.forEach((event) => {
+    if (event.type.includes('MADE')) {
+      const points = event.type === 'SHOT_2_MADE' ? 2 : event.type === 'SHOT_3_MADE' ? 3 : 1;
+      if (event.teamSide === 'US') {
+        ourScore += points;
+      } else {
+        oppScore += points;
+      }
+    }
+  });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Play-by-Play</CardTitle>
-        <CardDescription>
-          {events.events.length} events recorded
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[600px] pr-4">
-          {sortedEvents.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">
-              No events recorded yet. Start tracking to see play-by-play!
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(eventsByPeriod).map(([period, periodEvents]) => (
-                <div key={period}>
-                  <div className="sticky top-0 bg-background z-10 pb-2">
-                    <h3 className="font-semibold text-sm text-muted-foreground">{period}</h3>
-                  </div>
-                  <div className="space-y-2">
-                    {periodEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border ${getEventColor(
-                          event.type,
-                          event.teamSide
-                        )}`}
-                      >
-                        <div className="text-lg">{getEventIcon(event.type)}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline justify-between gap-2 mb-1">
-                            <span className="font-semibold text-sm">
-                              {formatEventType(event.type)}
-                            </span>
-                            <span className="text-xs text-muted-foreground font-mono whitespace-nowrap">
-                              {formatClock(event.clockSec)}
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {event.teamSide === 'US' ? 'Your Team' : 'Opponent'}
-                            {event.playerId && ` • Player ${event.playerId}`}
-                          </div>
-                          {event.meta && Object.keys(event.meta).length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {JSON.stringify(event.meta)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+    <ScrollArea className="h-[500px] pr-4">
+      {sortedEvents.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8 text-sm">
+          No events recorded yet
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedEvents.map((event, index) => {
+            const emoji = getEventEmoji(event.type);
+            const description = getEventDescription(event);
+            const isOurTeam = event.teamSide === 'US';
+
+            return (
+              <div
+                key={event.id}
+                className={`flex gap-3 p-2.5 rounded-lg border transition-colors ${
+                  isOurTeam
+                    ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/40'
+                    : 'bg-slate-50 dark:bg-slate-900/30 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/40'
+                }`}
+              >
+                {/* Time */}
+                <div className="flex flex-col items-center gap-1 min-w-fit">
+                  <span className="text-xs font-bold font-mono text-muted-foreground">
+                    {formatClock(event.clockSec)}
+                  </span>
+                  <span className="text-lg">{emoji}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </CardContent>
-    </Card>
+
+                {/* Event Description */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium leading-snug">
+                    {description}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Q{event.period}
+                  </p>
+                </div>
+
+                {/* Score */}
+                <div className="flex flex-col items-end gap-1 min-w-fit">
+                  <Badge
+                    variant={isOurTeam ? 'default' : 'secondary'}
+                    className="text-xs font-bold px-2 py-0.5"
+                  >
+                    {isOurTeam ? ourScore : oppScore}
+                  </Badge>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </ScrollArea>
   );
 }

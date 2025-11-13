@@ -23,39 +23,35 @@ export function PlayersGrid({
     <Button
       variant={isSelected ? 'default' : 'outline'}
       className={cn(
-        'h-16 flex-col justify-center p-2',
-        isSelected && 'ring-2 ring-primary ring-offset-2'
+        'h-12 flex-col justify-center p-1.5',
+        isSelected && 'ring-2 ring-primary ring-offset-1'
       )}
       onClick={() => onPlayerSelect(player.id)}
     >
-      <div className="text-lg font-bold">#{player.number}</div>
-      <div className="text-xs truncate w-full">{player.name}</div>
-      <div className="text-xs text-muted-foreground">{player.position}</div>
+      <div className="text-sm font-bold">#{player.number}</div>
+      <div className="text-[10px] truncate w-full leading-tight">{player.name.split(' ')[0]}</div>
     </Button>
   )
 
   return (
     <Card className="sticky top-4">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg">🏀 Your Team</CardTitle>
+      <CardHeader className="pb-2 pt-2">
+        <CardTitle className="text-sm font-semibold">🏀 Your Team</CardTitle>
       </CardHeader>
-      
-      <CardContent>
-        {/* Current Selection Display */}
+
+      <CardContent className="p-2 pt-0">
+        {/* Current Selection Display - Compact */}
         {selectedPlayer && (
-          <div className="mb-4 p-3 bg-primary/10 rounded-lg">
-            <div className="text-sm font-medium text-primary">
-              Selected: Player #{players.find(p => p.id === selectedPlayer)?.number}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {players.find(p => p.id === selectedPlayer)?.name}
+          <div className="mb-2 p-2 bg-primary/10 rounded text-xs">
+            <div className="font-medium text-primary">
+              #{players.find(p => p.id === selectedPlayer)?.number} {players.find(p => p.id === selectedPlayer)?.name}
             </div>
           </div>
         )}
 
         {/* Players Grid */}
         {players.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {players.map((player) => (
               <PlayerCard
                 key={player.id}
@@ -65,30 +61,27 @@ export function PlayersGrid({
             ))}
           </div>
         ) : (
-          <div className="text-center py-8 text-muted-foreground">
-            <p className="mb-2">No players in your roster</p>
-            <p className="text-sm">
+          <div className="text-center py-4 text-muted-foreground">
+            <p className="text-xs mb-1">No players in roster</p>
+            <p className="text-[10px]">
               <a href="/players" className="text-primary hover:underline">
                 Add players
-              </a> to get started
+              </a>
             </p>
           </div>
         )}
 
-        {/* Quick Actions */}
-        {players.length > 0 && (
-          <div className="mt-4 pt-3 border-t">
-            <div className="text-xs text-muted-foreground mb-2">Quick Actions:</div>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPlayerSelect('')}
-                disabled={!selectedPlayer}
-              >
-                Clear Selection
-              </Button>
-            </div>
+        {/* Quick Actions - Compact */}
+        {players.length > 0 && selectedPlayer && (
+          <div className="mt-2 pt-2 border-t">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onPlayerSelect('')}
+              className="w-full h-7 text-xs"
+            >
+              Clear
+            </Button>
           </div>
         )}
       </CardContent>

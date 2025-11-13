@@ -16,6 +16,10 @@ interface GameControlsProps {
   currentPeriod: number;
   currentClock: number; // in seconds
   status: 'scheduled' | 'active' | 'paused' | 'completed';
+  homeScore?: number;
+  awayScore?: number;
+  homeTeamName?: string;
+  awayTeamName?: string;
 }
 
 interface SavedGameState {
@@ -160,7 +164,16 @@ function AdvancedControlsContent({
   );
 }
 
-export function GameControls({ gameId, currentPeriod, currentClock, status }: GameControlsProps) {
+export function GameControls({
+  gameId,
+  currentPeriod,
+  currentClock,
+  status,
+  homeScore = 0,
+  awayScore = 0,
+  homeTeamName,
+  awayTeamName,
+}: GameControlsProps) {
   const [clockSeconds, setClockSeconds] = useState(currentClock);
   const [period, setPeriod] = useState(currentPeriod);
   const [isRunning, setIsRunning] = useState(status === 'active');
@@ -353,6 +366,19 @@ export function GameControls({ gameId, currentPeriod, currentClock, status }: Ga
             >
               {isRunning ? 'RUNNING' : clockSeconds === 0 ? 'ENDED' : 'PAUSED'}
             </Badge>
+          </div>
+
+          {/* Score Display - Center */}
+          <div className="text-center flex-1 hidden sm:flex items-center justify-center">
+            <div>
+              <div className="text-xs text-muted-foreground leading-none">{homeTeamName || 'Home'}</div>
+              <div className="text-2xl font-bold font-mono">{homeScore}</div>
+            </div>
+            <div className="px-3 text-muted-foreground font-semibold">-</div>
+            <div>
+              <div className="text-xs text-muted-foreground leading-none">{awayTeamName || 'Away'}</div>
+              <div className="text-2xl font-bold font-mono">{awayScore}</div>
+            </div>
           </div>
 
           {/* Primary Action - Start/Pause */}

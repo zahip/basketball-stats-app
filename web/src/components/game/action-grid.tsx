@@ -13,30 +13,27 @@ interface ActionGridProps {
 
 export function ActionGrid({ selectedPlayer, onAction, disabled, selectedTeam = 'home' }: ActionGridProps) {
   const shotActions = [
-    { type: 'SHOT_2_MADE', label: '🏀 2PT Made', color: 'bg-green-600' },
-    { type: 'SHOT_2_MISS', label: '❌ 2PT Miss', color: 'bg-red-600' },
-    { type: 'SHOT_3_MADE', label: '🎯 3PT Made', color: 'bg-green-600' },
-    { type: 'SHOT_3_MISS', label: '❌ 3PT Miss', color: 'bg-red-600' },
-    { type: 'FT_MADE', label: '✅ FT Made', color: 'bg-green-600' },
-    { type: 'FT_MISS', label: '❌ FT Miss', color: 'bg-red-600' },
+    { type: 'SHOT_2_MADE', label: '🏀 2PT Made', shortLabel: '2PT ✓', color: 'bg-green-600' },
+    { type: 'SHOT_2_MISS', label: '❌ 2PT Miss', shortLabel: '2PT ✗', color: 'bg-red-600' },
+    { type: 'SHOT_3_MADE', label: '🎯 3PT Made', shortLabel: '3PT ✓', color: 'bg-green-600' },
+    { type: 'SHOT_3_MISS', label: '❌ 3PT Miss', shortLabel: '3PT ✗', color: 'bg-red-600' },
+    { type: 'FT_MADE', label: '✅ FT Made', shortLabel: 'FT ✓', color: 'bg-green-600' },
+    { type: 'FT_MISS', label: '❌ FT Miss', shortLabel: 'FT ✗', color: 'bg-red-600' },
   ]
 
   const playActions = [
-    { type: 'AST', label: '🤝 Assist', color: 'bg-blue-600' },
-    { type: 'REB_O', label: '↗️ Off Reb', color: 'bg-orange-600' },
-    { type: 'REB_D', label: '↘️ Def Reb', color: 'bg-purple-600' },
-    { type: 'STL', label: '🔥 Steal', color: 'bg-yellow-600' },
-    { type: 'BLK', label: '🚫 Block', color: 'bg-red-600' },
-    { type: 'TOV', label: '😔 Turnover', color: 'bg-gray-600' },
+    { type: 'AST', label: '🤝 Assist', shortLabel: '🤝 Ast', color: 'bg-blue-600' },
+    { type: 'REB_O', label: '↗️ Off Reb', shortLabel: '↗️ OReb', color: 'bg-orange-600' },
+    { type: 'REB_D', label: '↘️ Def Reb', shortLabel: '↘️ DReb', color: 'bg-purple-600' },
+    { type: 'STL', label: '🔥 Steal', shortLabel: '🔥 Stl', color: 'bg-yellow-600' },
+    { type: 'BLK', label: '🚫 Block', shortLabel: '🚫 Blk', color: 'bg-red-600' },
+    { type: 'TOV', label: '😔 Turnover', shortLabel: '😔 TO', color: 'bg-gray-600' },
   ]
 
-  const foulActions = [
-    { type: 'FOUL', label: '🟡 Foul', color: 'bg-yellow-500' },
-  ]
-
-  const substitutionActions = [
-    { type: 'SUB_IN', label: '➡️ Sub In', color: 'bg-green-600' },
-    { type: 'SUB_OUT', label: '⬅️ Sub Out', color: 'bg-blue-600' },
+  const otherActions = [
+    { type: 'FOUL', label: '🟡 Foul', shortLabel: '🟡 Foul', color: 'bg-yellow-500' },
+    { type: 'SUB_IN', label: '➡️ Sub In', shortLabel: '➡️ In', color: 'bg-green-600' },
+    { type: 'SUB_OUT', label: '⬅️ Sub Out', shortLabel: '⬅️ Out', color: 'bg-blue-600' },
   ]
 
   const isActionDisabled = disabled || (selectedTeam === 'home' && !selectedPlayer)
@@ -49,95 +46,83 @@ export function ActionGrid({ selectedPlayer, onAction, disabled, selectedTeam = 
     })
   }
 
-  const ActionButton = ({ action, size = 'default' }: { action: any, size?: 'sm' | 'default' | 'lg' }) => (
+  const ActionButton = ({ action, size = 'sm', useShortLabel = false }: { action: any, size?: 'sm' | 'default' | 'lg', useShortLabel?: boolean }) => (
     <Button
       onClick={() => handleAction(action.type)}
       disabled={isActionDisabled}
-      className={`${action.color} hover:opacity-90 text-white font-bold`}
+      className={`${action.color} hover:opacity-80 active:opacity-100 text-white font-semibold h-auto py-2.5 px-1.5 transition-opacity duration-150 disabled:opacity-50`}
       size={size}
     >
-      {action.label}
+      <span className="text-xs sm:text-sm font-medium leading-tight">
+        {useShortLabel ? action.shortLabel : action.label}
+      </span>
     </Button>
   )
 
   return (
-    <div className="space-y-4">
-      {/* Selection Status */}
+    <div className="space-y-1.5">
+      {/* Selection Status - Ultra Compact */}
       <Card>
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2">
+        <CardContent className="p-2">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
               <span className="font-medium">
                 {selectedTeam === 'home' ? '🏀 Your Team' : '👥 Opponent'}
               </span>
               {selectedTeam === 'home' && (
                 <>
                   {selectedPlayer ? (
-                    <Badge variant="outline">Player #{selectedPlayer}</Badge>
+                    <Badge variant="outline" className="text-xs h-5">Player #{selectedPlayer}</Badge>
                   ) : (
-                    <span className="text-muted-foreground">No player selected</span>
+                    <span className="text-muted-foreground text-xs">No player</span>
                   )}
                 </>
               )}
             </div>
             {isActionDisabled && selectedTeam === 'home' && (
-              <span className="text-yellow-600 text-xs">⚠️ Select a player first</span>
+              <span className="text-yellow-600 text-[10px]">⚠️ Select player</span>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Shooting Actions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">🏀 Shooting</CardTitle>
+      {/* Shooting Actions - Responsive grid */}
+      <Card className="border-l-4 border-l-green-600">
+        <CardHeader className="pb-1.5 pt-2.5 px-3">
+          <CardTitle className="text-xs font-bold">🏀 Shooting</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
+        <CardContent className="p-2.5 pt-0">
+          <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
             {shotActions.map((action) => (
-              <ActionButton key={action.type} action={action} size="lg" />
+              <ActionButton key={action.type} action={action} size="sm" useShortLabel={true} />
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Play Actions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">⚡ Plays</CardTitle>
+      {/* Play Actions - Responsive grid */}
+      <Card className="border-l-4 border-l-blue-600">
+        <CardHeader className="pb-1.5 pt-2.5 px-3">
+          <CardTitle className="text-xs font-bold">⚡ Plays</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
+        <CardContent className="p-2.5 pt-0">
+          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-3 gap-1.5">
             {playActions.map((action) => (
-              <ActionButton key={action.type} action={action} />
+              <ActionButton key={action.type} action={action} size="sm" useShortLabel={true} />
             ))}
           </div>
         </CardContent>
       </Card>
 
-      {/* Fouls */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">⚠️ Fouls</CardTitle>
+      {/* Fouls & Substitutions - Combined */}
+      <Card className="border-l-4 border-l-yellow-500">
+        <CardHeader className="pb-1.5 pt-2.5 px-3">
+          <CardTitle className="text-xs font-bold">⚠️ Other</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-2">
-            {foulActions.map((action) => (
-              <ActionButton key={action.type} action={action} size="sm" />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Substitutions */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">↔️ Substitutions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-2">
-            {substitutionActions.map((action) => (
-              <ActionButton key={action.type} action={action} size="sm" />
+        <CardContent className="p-2.5 pt-0">
+          <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-3 gap-1.5">
+            {otherActions.map((action) => (
+              <ActionButton key={action.type} action={action} size="sm" useShortLabel={true} />
             ))}
           </div>
         </CardContent>

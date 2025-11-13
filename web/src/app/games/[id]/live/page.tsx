@@ -5,8 +5,10 @@ import { use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProtectedRoute } from "@/components/auth/protected-route";
-import { GameHeader } from "@/components/game/game-header";
 import { ActionGrid } from "@/components/game/action-grid";
 import { PlayersGrid } from "@/components/game/players-grid";
 import { BoxScore } from "@/components/game/box-score";
@@ -135,6 +137,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     clock: "00:00",
   });
   const [pendingEventsCount, setPendingEventsCount] = useState(0);
+  const [pendingAssistEvent, setPendingAssistEvent] = useState<{ eventType: string; scorerId: string | null } | null>(null);
   const { toast } = useToast();
   const {
     gameState,
@@ -652,12 +655,22 @@ function LiveGameContent({ gameId }: { gameId: string }) {
       // Update pending events count
       updatePendingEventsCount();
 
-      toast({
-        title: "Event Recorded",
-        description: selectedTeam === 'home'
-          ? `${eventType.replace(/_/g, " ")} recorded for player #${player!.number}`
-          : `${eventType.replace(/_/g, " ")} recorded for ${displayData.awayTeam}`,
-      });
+      // Check if this was a scoring play that could have an assist
+      const isScoringPlay = eventType.includes('MADE');
+      if (isScoringPlay && selectedTeam === 'home' && selectedPlayer) {
+        setPendingAssistEvent({ eventType, scorerId: selectedPlayer });
+        toast({
+          title: "Event Recorded",
+          description: `${eventType.replace(/_/g, " ")} for player #${player!.number}`,
+        });
+      } else {
+        toast({
+          title: "Event Recorded",
+          description: selectedTeam === 'home'
+            ? `${eventType.replace(/_/g, " ")} recorded for player #${player!.number}`
+            : `${eventType.replace(/_/g, " ")} recorded for ${displayData.awayTeam}`,
+        });
+      }
 
       // Keep player selected for rapid stat entry
     } catch (error) {
@@ -778,8 +791,8 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-6xl">
-      {/* Game Controls - Top of Page */}
+    <div className="container mx-auto p-2 sm:p-4 max-w-6xl">
+      {/* Game Controls - Top of Page (includes score display) */}
       <GameControls
         gameId={gameId}
         currentPeriod={displayData.period}
@@ -788,90 +801,91 @@ function LiveGameContent({ gameId }: { gameId: string }) {
           parseInt(displayData.clock.split(":")[1])
         }
         status={displayData.status}
-      />
-
-      {/* Game Header */}
-      <GameHeader
-        gameId={gameId}
-        homeTeam={displayData.homeTeam}
-        awayTeam={displayData.awayTeam}
         homeScore={displayData.homeScore}
         awayScore={displayData.awayScore}
-        period={displayData.period}
-        clock={displayData.clock}
-        status={displayData.status}
+        homeTeamName={displayData.homeTeam}
+        awayTeamName={displayData.awayTeam}
       />
 
-      {/* Offline Status & Controls */}
-      <Card className="mb-4">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 text-sm">
-              <div
-                className={`flex items-center gap-2 ${
-                  navigator.onLine ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    navigator.onLine ? "bg-green-500" : "bg-red-500"
-                  }`}
-                />
-                {navigator.onLine ? "Online" : "Offline"}
-              </div>
-              <div
-                className={`flex items-center gap-2 ${
-                  isConnected ? "text-green-600" : "text-yellow-600"
-                }`}
-              >
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isConnected ? "bg-green-500" : "bg-yellow-500"
-                  }`}
-                />
-                Realtime: {connectionStatus}
-              </div>
-              {pendingEventsCount > 0 && (
-                <div className="text-yellow-600">
-                  📋 {pendingEventsCount} events pending sync
-                  {!navigator.onLine && (
-                    <span className="text-xs ml-1">(offline)</span>
-                  )}
-                </div>
-              )}
-              {recentEvents.length > 0 && (
-                <div className="text-blue-600">
-                  📡 {recentEvents.length} recent events
-                </div>
-              )}
-            </div>
+      {/* Stats Quick Access - Top Buttons */}
+      <div className="flex items-center gap-2 mb-2">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+            >
+              <span>📈</span> Box Score
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-[420px] p-5 overflow-y-auto">
+            <SheetHeader className="mb-6">
+              <SheetTitle className="text-lg font-bold">📈 Box Score</SheetTitle>
+              <SheetDescription>Player and team statistics</SheetDescription>
+            </SheetHeader>
+            <BoxScore gameId={gameId} />
+          </SheetContent>
+        </Sheet>
 
-            <div className="flex gap-2">
-              <Button
-                onClick={handleUndoLastEvent}
-                variant="outline"
-                size="sm"
-                disabled={pendingEventsCount === 0}
-              >
-                ↶ Undo Last
-              </Button>
-              <Button
-                onClick={handleSyncNow}
-                variant="outline"
-                size="sm"
-                disabled={!navigator.onLine || pendingEventsCount === 0}
-              >
-                🔄 Sync Now
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs h-8"
+            >
+              <span>📝</span> Play-by-Play
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-full sm:max-w-[420px] p-5 overflow-y-auto">
+            <SheetHeader className="mb-6">
+              <SheetTitle className="text-lg font-bold">📝 Play-by-Play</SheetTitle>
+              <SheetDescription>Event timeline</SheetDescription>
+            </SheetHeader>
+            <PlayByPlay gameId={gameId} />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Offline Status & Quick Actions - Compact */}
+      <div className="flex items-center gap-1.5 mb-2 text-xs flex-wrap">
+        {!navigator.onLine && (
+          <Badge variant="destructive" className="text-[10px] h-5">🔴 Offline</Badge>
+        )}
+        {!isConnected && (
+          <Badge variant="secondary" className="text-[10px] h-5">⚠️ {connectionStatus}</Badge>
+        )}
+        {pendingEventsCount > 0 && (
+          <Badge variant="outline" className="text-[10px] h-5">📋 {pendingEventsCount}</Badge>
+        )}
+        {pendingEventsCount > 0 && (
+          <Button
+            onClick={handleSyncNow}
+            variant="ghost"
+            size="sm"
+            disabled={!navigator.onLine}
+            className="h-5 px-2 text-[10px]"
+          >
+            🔄 Sync
+          </Button>
+        )}
+        {pendingEventsCount > 0 && (
+          <Button
+            onClick={handleUndoLastEvent}
+            variant="ghost"
+            size="sm"
+            className="h-5 px-2 text-[10px]"
+          >
+            ↶ Undo
+          </Button>
+        )}
+      </div>
 
       {/* Main Game Interface */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 mb-2">
         {/* Left Column: Team Selector + Action Grid */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-2 space-y-1.5">
           <TeamSelector
             selectedTeam={selectedTeam}
             onTeamSelect={setSelectedTeam}
@@ -887,7 +901,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         </div>
 
         {/* Right Column: Players Grid (conditionally shown for home team) */}
-        <div className="space-y-4">
+        <div className="space-y-1.5">
           {selectedTeam === 'home' ? (
             <PlayersGrid
               selectedPlayer={selectedPlayer}
@@ -897,11 +911,11 @@ function LiveGameContent({ gameId }: { gameId: string }) {
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <div className="text-3xl mb-2">👥</div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
+                  <div className="text-2xl mb-1">👥</div>
+                  <p className="text-xs font-medium text-muted-foreground mb-0.5">
                     {displayData.awayTeam}
                   </p>
-                  <p className="text-xs text-muted-foreground">Team totals only</p>
+                  <p className="text-[10px] text-muted-foreground">Team totals only</p>
                 </div>
               </CardContent>
             </Card>
@@ -909,11 +923,67 @@ function LiveGameContent({ gameId }: { gameId: string }) {
         </div>
       </div>
 
-      {/* Statistics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <BoxScore gameId={gameId} />
-        <PlayByPlay gameId={gameId} />
-      </div>
+      {/* Assist Selection Modal */}
+      <Dialog open={!!pendingAssistEvent} onOpenChange={(open) => !open && setPendingAssistEvent(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Who got the assist? 🎯</DialogTitle>
+            <DialogDescription>
+              Select the player who assisted on this basket (or skip if no assist)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
+            {(() => {
+              const { getActivePlayers } = usePlayersStore.getState();
+              const players = getActivePlayers();
+              return players.map((p) => (
+                <Button
+                  key={p.id}
+                  variant="outline"
+                  className="h-auto py-3 flex flex-col items-center gap-1"
+                  onClick={async () => {
+                    if (pendingAssistEvent) {
+                      // Record assist event
+                      await eventQueueManager.addEvent(
+                        gameId,
+                        'AST',
+                        p.number.toString(),
+                        'home',
+                        {
+                          period: gameData.period,
+                          clockSec: (() => {
+                            const [minutes, seconds] = gameData.clock.split(":").map(Number);
+                            return minutes * 60 + seconds;
+                          })(),
+                          assistFor: pendingAssistEvent.scorerId,
+                        }
+                      );
+                      updatePendingEventsCount();
+                      toast({
+                        title: "Assist Recorded",
+                        description: `Player #${p.number} assist on basket by player #${pendingAssistEvent.scorerId}`,
+                      });
+                      setPendingAssistEvent(null);
+                    }
+                  }}
+                >
+                  <span className="text-lg font-bold">#{p.number}</span>
+                  <span className="text-xs">{p.name}</span>
+                </Button>
+              ));
+            })()}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <Button
+              variant="ghost"
+              className="flex-1"
+              onClick={() => setPendingAssistEvent(null)}
+            >
+              Skip Assist
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
