@@ -2,64 +2,77 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, TrendingUp } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
-interface PlayerStats {
+interface PlayerInfo {
+  firstName: string;
+  lastName: string;
+  jersey: number;
+  position: string | null;
+}
+
+interface BoxScorePlayerData {
+  id: string;
+  gameId: string;
   playerId: string;
-  playerNumber: number;
-  playerName: string;
-  points: number;
-  fgm: number;
-  fga: number;
-  fg3m: number;
-  fg3a: number;
+  minutes: number;
+  pts: number;
+  fgm2: number;
+  fga2: number;
+  fgm3: number;
+  fga3: number;
   ftm: number;
   fta: number;
   oreb: number;
   dreb: number;
-  reb: number;
   ast: number;
   stl: number;
   blk: number;
   tov: number;
   pf: number;
   plusMinus: number;
-  minutesPlayed: number;
+  player: PlayerInfo | null;
+  advanced?: Record<string, unknown>;
 }
 
-interface TeamStats {
-  teamSide: string;
-  teamName: string | null;
-  points: number;
-  fgm: number;
-  fga: number;
-  fg3m: number;
-  fg3a: number;
+interface BoxScoreTeamData {
+  id: string;
+  gameId: string;
+  teamSide: 'US' | 'OPP';
+  pts: number;
+  fgm2: number;
+  fga2: number;
+  fgm3: number;
+  fga3: number;
   ftm: number;
   fta: number;
   oreb: number;
   dreb: number;
-  reb: number;
   ast: number;
   stl: number;
   blk: number;
   tov: number;
   pf: number;
-  fgPct: number | null;
-  fg3Pct: number | null;
-  ftPct: number | null;
-  efgPct: number | null;
-  tsPct: number | null;
-  astToRatio: number | null;
+  advanced?: Record<string, unknown>;
+}
+
+interface GameData {
+  id: string;
+  opponent: string;
+  date: string;
+  status: string;
+  period: number;
+  clockSec: number;
+  ourScore: number;
+  oppScore: number;
+  team: unknown;
 }
 
 interface BoxScoreData {
-  gameId: string;
-  teamStats: TeamStats[];
-  playerStats: PlayerStats[];
+  game: GameData;
+  teamBoxScores: BoxScoreTeamData[];
+  playerBoxScores: BoxScorePlayerData[];
 }
 
 interface BoxScoreProps {
@@ -67,9 +80,7 @@ interface BoxScoreProps {
 }
 
 export function BoxScore({ gameId }: BoxScoreProps) {
-  const [highlightedCells, setHighlightedCells] = useState<Set<string>>(new Set());
-
-  const { data: boxScore, isLoading, error, refetch } = useQuery<BoxScoreData>({
+  const { data: boxScore, isLoading, error } = useQuery<BoxScoreData>({
     queryKey: ['boxscore', gameId],
     queryFn: async () => {
       const response = await apiClient(`/games/${gameId}/boxscore`);
@@ -82,51 +93,67 @@ export function BoxScore({ gameId }: BoxScoreProps) {
     staleTime: 0,
   });
 
-  const formatPct = (value: number | null) => {
-    if (value === null || value === 0) return '0.0%';
+  const formatPct = (value: number | null | undefined) => {
+    if (value === null || value === 0 || value === undefined) return '0.0%';
     return `${(value * 100).toFixed(1)}%`;
+  };
+
+  const calculateFGPct = (made: number, attempts: number) => {
+    if (attempts === 0) return 0;
+    return made / attempts;
+  };
+
+  const calculateEFGPct = (made2: number, made3: number, attempts2: number, attempts3: number) => {
+    const totalAttempts = attempts2 + attempts3;
+    if (totalAttempts === 0) return 0;
+    return (made2 + 1.5 * made3) / totalAttempts;
+  };
+
+  const calculateTSPct = (pts: number, attempts2: number, attempts3: number, fta: number) => {
+    const totalAttempts = attempts2 + attempts3 + 0.44 * fta;
+    if (totalAttempts === 0) return 0;
+    return pts / (2 * totalAttempts);
+  };
+
+  const calculateRebounds = (oreb: number, dreb: number) => {
+    return oreb + dreb;
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Box Score</CardTitle>
-          <CardDescription>Loading statistics...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="w-6 h-6 animate-spin" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
-  if (error || !boxScore || !boxScore.teamStats || !boxScore.playerStats) {
+  if (error || !boxScore || !boxScore.teamBoxScores || !boxScore.playerBoxScores) {
+    // Debug: Log why we're showing empty state
+    if (error) console.error('❌ Box Score API Error:', error);
+    if (!boxScore) console.warn('⚠️ boxScore is undefined/null');
+    if (boxScore && !boxScore.teamBoxScores) console.warn('⚠️ boxScore.teamBoxScores is empty/undefined');
+    if (boxScore && !boxScore.playerBoxScores) console.warn('⚠️ boxScore.playerBoxScores is empty/undefined');
+
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Box Score</CardTitle>
-          <CardDescription>No data available</CardDescription>
-        </CardHeader>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          No box score data available yet. Start recording events to see statistics.
-        </CardContent>
-      </Card>
+      <div className="py-8 text-center text-muted-foreground space-y-3">
+        <p>No box score data available yet. Start recording events to see statistics.</p>
+        <p className="text-xs text-slate-500">
+          {error && `Error: ${error.message}`}
+          {!error && !boxScore && 'Waiting for data...'}
+          {boxScore && !boxScore.teamBoxScores && 'No team stats available'}
+          {boxScore && !boxScore.playerBoxScores && 'No player stats available'}
+        </p>
+      </div>
     );
   }
 
-  const ourTeam = boxScore.teamStats.find((t) => t.teamSide === 'US');
-  const oppTeam = boxScore.teamStats.find((t) => t.teamSide === 'OPP');
-  const ourPlayers = boxScore.playerStats.filter((p) => p.playerId !== 'OPP');
+  const ourTeam = boxScore.teamBoxScores.find((t) => t.teamSide === 'US');
+  const oppTeam = boxScore.teamBoxScores.find((t) => t.teamSide === 'OPP');
+  const ourPlayers = boxScore.playerBoxScores;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Box Score</CardTitle>
-        <CardDescription>Live game statistics</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="team" className="w-full">
+    <div className="space-y-4">
+      <Tabs defaultValue="team" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="team">Team Stats</TabsTrigger>
             <TabsTrigger value="players">Player Stats</TabsTrigger>
@@ -166,22 +193,22 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                   {ourTeam && (
                     <tr className="border-b bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-900/40">
                       <td className="py-2 px-2 font-semibold text-green-900 dark:text-green-100">
-                        🏀 {ourTeam.teamName || 'Your Team'}
+                        🏀 Your Team
                       </td>
-                      <td className="text-center py-2 px-1.5 font-bold text-lg">{ourTeam.points}</td>
+                      <td className="text-center py-2 px-1.5 font-bold text-lg">{ourTeam.pts}</td>
                       <td className="text-center py-2 px-1.5">
-                        {ourTeam.fgm}/{ourTeam.fga}
+                        {ourTeam.fgm2}/{ourTeam.fga2}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.fgPct)}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(ourTeam.fgm2, ourTeam.fga2))}</td>
                       <td className="text-center py-2 px-1.5">
-                        {ourTeam.fg3m}/{ourTeam.fg3a}
+                        {ourTeam.fgm3}/{ourTeam.fga3}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.fg3Pct)}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(ourTeam.fgm3, ourTeam.fga3))}</td>
                       <td className="text-center py-2 px-1.5">
                         {ourTeam.ftm}/{ourTeam.fta}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(ourTeam.ftPct)}</td>
-                      <td className="text-center py-2 px-1.5 font-semibold">{ourTeam.reb}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(ourTeam.ftm, ourTeam.fta))}</td>
+                      <td className="text-center py-2 px-1.5 font-semibold">{calculateRebounds(ourTeam.oreb, ourTeam.dreb)}</td>
                       <td className="text-center py-2 px-1.5">{ourTeam.ast}</td>
                       <td className="text-center py-2 px-1.5">{ourTeam.stl}</td>
                       <td className="text-center py-2 px-1.5">{ourTeam.blk}</td>
@@ -191,22 +218,22 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                   {oppTeam && (
                     <tr className="border-b bg-slate-50 dark:bg-slate-900/30 hover:bg-slate-100 dark:hover:bg-slate-800/40">
                       <td className="py-2 px-2 font-semibold">
-                        👥 {oppTeam.teamName || 'Opponent'}
+                        👥 Opponent
                       </td>
-                      <td className="text-center py-2 px-1.5 font-bold text-lg">{oppTeam.points}</td>
+                      <td className="text-center py-2 px-1.5 font-bold text-lg">{oppTeam.pts}</td>
                       <td className="text-center py-2 px-1.5">
-                        {oppTeam.fgm}/{oppTeam.fga}
+                        {oppTeam.fgm2}/{oppTeam.fga2}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.fgPct)}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(oppTeam.fgm2, oppTeam.fga2))}</td>
                       <td className="text-center py-2 px-1.5">
-                        {oppTeam.fg3m}/{oppTeam.fg3a}
+                        {oppTeam.fgm3}/{oppTeam.fga3}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.fg3Pct)}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(oppTeam.fgm3, oppTeam.fga3))}</td>
                       <td className="text-center py-2 px-1.5">
                         {oppTeam.ftm}/{oppTeam.fta}
                       </td>
-                      <td className="text-center py-2 px-1.5">{formatPct(oppTeam.ftPct)}</td>
-                      <td className="text-center py-2 px-1.5 font-semibold">{oppTeam.reb}</td>
+                      <td className="text-center py-2 px-1.5">{formatPct(calculateFGPct(oppTeam.ftm, oppTeam.fta))}</td>
+                      <td className="text-center py-2 px-1.5 font-semibold">{calculateRebounds(oppTeam.oreb, oppTeam.dreb)}</td>
                       <td className="text-center py-2 px-1.5">{oppTeam.ast}</td>
                       <td className="text-center py-2 px-1.5">{oppTeam.stl}</td>
                       <td className="text-center py-2 px-1.5">{oppTeam.blk}</td>
@@ -224,16 +251,20 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-slate-100 dark:bg-slate-800 rounded p-3">
                     <div className="text-xs text-muted-foreground">eFG%</div>
-                    <div className="text-lg font-bold">{formatPct(ourTeam.efgPct)}</div>
+                    <div className="text-lg font-bold">
+                      {formatPct(calculateEFGPct(ourTeam.fgm2, ourTeam.fgm3, ourTeam.fga2, ourTeam.fga3))}
+                    </div>
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded p-3">
                     <div className="text-xs text-muted-foreground">TS%</div>
-                    <div className="text-lg font-bold">{formatPct(ourTeam.tsPct)}</div>
+                    <div className="text-lg font-bold">
+                      {formatPct(calculateTSPct(ourTeam.pts, ourTeam.fga2, ourTeam.fga3, ourTeam.fta))}
+                    </div>
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded p-3">
                     <div className="text-xs text-muted-foreground">AST/TO</div>
                     <div className="text-lg font-bold">
-                      {ourTeam.astToRatio?.toFixed(2) || '0.00'}
+                      {ourTeam.tov === 0 ? '∞' : (ourTeam.ast / ourTeam.tov).toFixed(2)}
                     </div>
                   </div>
                   <div className="bg-slate-100 dark:bg-slate-800 rounded p-3">
@@ -282,30 +313,32 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                     </tr>
                   ) : (
                     ourPlayers
-                      .sort((a, b) => b.points - a.points) // Sort by points descending
+                      .sort((a, b) => b.pts - a.pts) // Sort by points descending
                       .map((player) => (
                         <tr
                           key={player.playerId}
                           className="border-b hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors"
                         >
                           <td className="text-center py-2 px-1.5 font-bold text-blue-600 dark:text-blue-400">
-                            {player.playerNumber}
+                            {player.player?.jersey || 'N/A'}
                           </td>
-                          <td className="py-2 px-2 font-medium text-left">{player.playerName}</td>
+                          <td className="py-2 px-2 font-medium text-left">
+                            {player.player ? `${player.player.firstName} ${player.player.lastName}` : 'Unknown'}
+                          </td>
                           <td className="text-center py-2 px-1.5 font-bold text-lg">
-                            {player.points}
+                            {player.pts}
                           </td>
                           <td className="text-center py-2 px-1.5 text-xs">
-                            {player.fgm}/{player.fga}
+                            {player.fgm2}/{player.fga2}
                           </td>
                           <td className="text-center py-2 px-1.5 text-xs">
-                            {player.fg3m}/{player.fg3a}
+                            {player.fgm3}/{player.fga3}
                           </td>
                           <td className="text-center py-2 px-1.5 text-xs">
                             {player.ftm}/{player.fta}
                           </td>
                           <td className="text-center py-2 px-1.5 font-semibold">
-                            {player.reb}
+                            {calculateRebounds(player.oreb, player.dreb)}
                           </td>
                           <td className="text-center py-2 px-1.5">
                             {player.ast}
@@ -337,7 +370,6 @@ export function BoxScore({ gameId }: BoxScoreProps) {
             )}
           </TabsContent>
         </Tabs>
-      </CardContent>
-    </Card>
+    </div>
   );
 }

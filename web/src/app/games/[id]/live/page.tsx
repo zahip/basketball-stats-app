@@ -138,6 +138,8 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   });
   const [pendingEventsCount, setPendingEventsCount] = useState(0);
   const [pendingAssistEvent, setPendingAssistEvent] = useState<{ eventType: string; scorerId: string | null } | null>(null);
+  const [boxScoreOpen, setBoxScoreOpen] = useState(false);
+  const [playByPlayOpen, setPlayByPlayOpen] = useState(false);
   const { toast } = useToast();
   const {
     gameState,
@@ -809,44 +811,46 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       {/* Stats Quick Access - Top Buttons */}
       <div className="flex items-center gap-2 mb-2">
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-            >
-              <span>📈</span> Box Score
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-[420px] p-5 overflow-y-auto">
-            <SheetHeader className="mb-6">
-              <SheetTitle className="text-lg font-bold">📈 Box Score</SheetTitle>
-              <SheetDescription>Player and team statistics</SheetDescription>
-            </SheetHeader>
-            <BoxScore gameId={gameId} />
-          </SheetContent>
-        </Sheet>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs h-8"
+          onClick={() => setBoxScoreOpen(true)}
+        >
+          <span>📈</span> Box Score
+        </Button>
 
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs h-8"
-            >
-              <span>📝</span> Play-by-Play
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="w-full sm:max-w-[500px] p-4 overflow-y-auto max-h-screen">
-            <SheetHeader className="mb-4">
-              <SheetTitle className="text-lg font-bold">📝 Play-by-Play</SheetTitle>
-              <SheetDescription>Complete event timeline</SheetDescription>
-            </SheetHeader>
-            <PlayByPlay gameId={gameId} />
-          </SheetContent>
-        </Sheet>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 text-xs h-8"
+          onClick={() => setPlayByPlayOpen(true)}
+        >
+          <span>📝</span> Play-by-Play
+        </Button>
       </div>
+
+      {/* Box Score Modal */}
+      <Dialog open={boxScoreOpen} onOpenChange={setBoxScoreOpen}>
+        <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">📈 Box Score</DialogTitle>
+            <DialogDescription>Live player and team statistics</DialogDescription>
+          </DialogHeader>
+          <BoxScore gameId={gameId} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Play-by-Play Modal */}
+      <Dialog open={playByPlayOpen} onOpenChange={setPlayByPlayOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">📝 Play-by-Play</DialogTitle>
+            <DialogDescription>Complete event timeline</DialogDescription>
+          </DialogHeader>
+          <PlayByPlay gameId={gameId} />
+        </DialogContent>
+      </Dialog>
 
       {/* Offline Status & Quick Actions - Compact */}
       <div className="flex items-center gap-1.5 mb-2 text-xs flex-wrap">

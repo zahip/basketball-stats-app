@@ -144,13 +144,14 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
   });
 
   return (
-    <ScrollArea className="h-[calc(100vh-200px)] pr-4">
+    <div className="space-y-4">
       {sortedEvents.length === 0 ? (
         <div className="text-center text-muted-foreground py-12 text-sm">
           No events recorded yet
         </div>
       ) : (
-        <div className="space-y-2">
+        <ScrollArea className="h-[calc(90vh-200px)] pr-4">
+          <div className="space-y-2">
           {sortedEvents.map((event, index) => {
             const emoji = getEventEmoji(event.type);
             const description = getEventDescription(event);
@@ -207,8 +208,9 @@ export function PlayByPlay({ gameId }: PlayByPlayProps) {
               </div>
             );
           })}
-        </div>
+          </div>
+        </ScrollArea>
       )}
-    </ScrollArea>
+    </div>
   );
 }
