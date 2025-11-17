@@ -18,39 +18,39 @@ export function TeamSelector({
   awayTeamName = 'Opponent',
 }: TeamSelectorProps) {
   return (
-    <Card className="mb-2 border-2 border-primary/20">
+    <Card className="border-l-4 border-l-primary shadow-sm flex-shrink-0">
       <CardContent className="p-3">
-        <div className="text-[11px] text-muted-foreground mb-2 font-semibold uppercase tracking-wide">
-          📍 Recording for:
+        <div className="text-xs text-muted-foreground mb-2.5 font-medium">
+          Recording Stats For
         </div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2.5">
           <Button
             variant={selectedTeam === 'home' ? 'default' : 'outline'}
             className={cn(
-              'h-14 flex-col justify-center items-center py-2 font-bold transition-all duration-200',
-              selectedTeam === 'home' && 'ring-2 ring-offset-1 ring-primary shadow-lg scale-105'
+              'h-16 flex-col justify-center items-center py-2 transition-all duration-200 font-semibold',
+              selectedTeam === 'home' && 'ring-2 ring-primary ring-offset-2 shadow-md'
             )}
             onClick={() => onTeamSelect('home')}
           >
-            <div className="text-sm font-bold leading-tight">🏀</div>
-            <div className="text-xs font-bold leading-tight mt-1">{homeTeamName}</div>
+            <div className="text-xl leading-none">🏀</div>
+            <div className="text-sm leading-tight mt-1 text-center truncate">{homeTeamName}</div>
             {selectedTeam === 'home' && (
-              <div className="text-[8px] mt-1 opacity-90 font-semibold">● RECORDING</div>
+              <div className="text-[9px] mt-1 opacity-75 font-semibold">● ACTIVE</div>
             )}
           </Button>
 
           <Button
             variant={selectedTeam === 'away' ? 'default' : 'outline'}
             className={cn(
-              'h-14 flex-col justify-center items-center py-2 font-bold transition-all duration-200',
-              selectedTeam === 'away' && 'ring-2 ring-offset-1 ring-primary shadow-lg scale-105'
+              'h-16 flex-col justify-center items-center py-2 transition-all duration-200 font-semibold',
+              selectedTeam === 'away' && 'ring-2 ring-primary ring-offset-2 shadow-md'
             )}
             onClick={() => onTeamSelect('away')}
           >
-            <div className="text-sm font-bold leading-tight">👥</div>
-            <div className="text-xs font-bold leading-tight mt-1">{awayTeamName}</div>
+            <div className="text-xl leading-none">👥</div>
+            <div className="text-sm leading-tight mt-1 text-center truncate">{awayTeamName}</div>
             {selectedTeam === 'away' && (
-              <div className="text-[8px] mt-1 opacity-90 font-semibold">● RECORDING</div>
+              <div className="text-[9px] mt-1 opacity-75 font-semibold">● ACTIVE</div>
             )}
           </Button>
         </div>

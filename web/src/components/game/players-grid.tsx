@@ -24,8 +24,8 @@ export function PlayersGrid({
     <Button
       variant={isSelected ? 'default' : 'outline'}
       className={cn(
-        'h-auto flex-col justify-center p-2 gap-1.5',
-        isSelected && 'ring-2 ring-primary ring-offset-1'
+        'h-auto flex-col justify-center p-3 gap-2 transition-all duration-200',
+        isSelected && 'ring-2 ring-primary ring-offset-2 shadow-md'
       )}
       onClick={() => onPlayerSelect(player.id)}
     >
@@ -34,22 +34,22 @@ export function PlayersGrid({
         lastName={player.name.split(' ')[1] || ''}
         src={player.avatar}
         jerseyNumber={player.number}
-        className="h-10 w-10"
+        className="h-12 w-12"
       />
-      <div className="text-[10px] truncate w-full leading-tight text-center">{player.name.split(' ')[0]}</div>
+      <div className="text-[11px] truncate w-full leading-tight text-center font-medium">{player.name.split(' ')[0]}</div>
     </Button>
   )
 
   return (
-    <Card className="sticky top-4">
-      <CardHeader className="pb-2 pt-2">
-        <CardTitle className="text-sm font-semibold">🏀 Your Team</CardTitle>
+    <Card className="h-full flex flex-col shadow-sm">
+      <CardHeader className="pb-3 pt-3 flex-shrink-0">
+        <CardTitle className="text-sm font-bold">🏀 Your Team</CardTitle>
       </CardHeader>
 
-      <CardContent className="p-2 pt-0">
+      <CardContent className="p-3 pt-0 flex-1 overflow-y-auto">
         {/* Current Selection Display - Compact */}
         {selectedPlayer && players.find(p => p.id === selectedPlayer) && (
-          <div className="mb-2 p-2 bg-primary/10 rounded text-xs flex items-center gap-2">
+          <div className="mb-3 p-2.5 bg-primary/10 rounded-md text-xs flex items-center gap-2 flex-shrink-0">
             {(() => {
               const player = players.find(p => p.id === selectedPlayer)
               return player ? (
@@ -59,10 +59,10 @@ export function PlayersGrid({
                     lastName={player.name.split(' ')[1] || ''}
                     src={player.avatar}
                     jerseyNumber={player.number}
-                    className="h-6 w-6"
+                    className="h-7 w-7"
                   />
-                  <span className="font-medium text-primary">
-                    {player.name}
+                  <span className="font-semibold text-primary line-clamp-1">
+                    #{player.number} {player.name}
                   </span>
                 </>
               ) : null
@@ -72,7 +72,7 @@ export function PlayersGrid({
 
         {/* Players Grid */}
         {players.length > 0 ? (
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
             {players.map((player) => (
               <PlayerCard
                 key={player.id}

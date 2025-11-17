@@ -343,133 +343,116 @@ export function GameControls({
   };
 
   return (
-    <Card className="mb-4">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between gap-3">
-          {/* Compact Clock Display - Always Visible */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="bg-slate-900 dark:bg-slate-950 text-white rounded-md px-3 py-2 min-w-0">
-              <div className="text-xs opacity-75 leading-none mb-0.5">P{period}</div>
-              <div className="text-xl md:text-2xl font-bold font-mono tracking-tight leading-none">
-                {formatClock(clockSeconds)}
-              </div>
-            </div>
-            <Badge
-              variant={
-                isRunning
-                  ? 'default'
-                  : clockSeconds === 0
-                  ? 'destructive'
-                  : 'secondary'
-              }
-              className="hidden sm:inline-flex"
-            >
-              {isRunning ? 'RUNNING' : clockSeconds === 0 ? 'ENDED' : 'PAUSED'}
-            </Badge>
+    <div className="flex items-center gap-2">
+      {/* Compact Clock Display - Always Visible */}
+      <div className="flex items-center gap-2">
+        <div className="bg-slate-900 dark:bg-slate-950 text-white rounded px-2 py-1.5">
+          <div className="text-[10px] opacity-75 leading-none mb-0.5">P{period}</div>
+          <div className="text-lg font-bold font-mono tracking-tight leading-none">
+            {formatClock(clockSeconds)}
           </div>
-
-          {/* Score Display - Center */}
-          <div className="text-center flex-1 hidden sm:flex items-center justify-center">
-            <div>
-              <div className="text-xs text-muted-foreground leading-none">{homeTeamName || 'Home'}</div>
-              <div className="text-2xl font-bold font-mono">{homeScore}</div>
-            </div>
-            <div className="px-3 text-muted-foreground font-semibold">-</div>
-            <div>
-              <div className="text-xs text-muted-foreground leading-none">{awayTeamName || 'Away'}</div>
-              <div className="text-2xl font-bold font-mono">{awayScore}</div>
-            </div>
-          </div>
-
-          {/* Primary Action - Start/Pause */}
-          <Button
-            onClick={handleStartPause}
-            size="default"
-            variant={isRunning ? 'destructive' : 'default'}
-            disabled={status === 'completed'}
-            className="shrink-0"
-          >
-            {isRunning ? (
-              <>
-                <Pause className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Pause</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Start</span>
-              </>
-            )}
-          </Button>
-
-          {/* Mobile: Sheet (Drawer from bottom) */}
-          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="default"
-                className="shrink-0 lg:hidden"
-                disabled={status === 'completed'}
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Game Controls</SheetTitle>
-                <SheetDescription>
-                  Manage period, clock, and game settings
-                </SheetDescription>
-              </SheetHeader>
-              <div className="mt-6">
-                <AdvancedControlsContent
-                  clockSeconds={clockSeconds}
-                  period={period}
-                  isRunning={isRunning}
-                  status={status}
-                  onSetTime={handleSetTime}
-                  onResetClock={handleResetClock}
-                  onNextPeriod={handleNextPeriod}
-                  onEndGame={handleEndGame}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          {/* Desktop: Dialog (Modal) */}
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                size="default"
-                className="shrink-0 hidden lg:flex"
-                disabled={status === 'completed'}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                More
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Game Controls</DialogTitle>
-                <DialogDescription>
-                  Manage period, clock, and game settings
-                </DialogDescription>
-              </DialogHeader>
-              <AdvancedControlsContent
-                clockSeconds={clockSeconds}
-                period={period}
-                isRunning={isRunning}
-                status={status}
-                onSetTime={handleSetTime}
-                onResetClock={handleResetClock}
-                onNextPeriod={handleNextPeriod}
-                onEndGame={handleEndGame}
-              />
-            </DialogContent>
-          </Dialog>
         </div>
-      </CardContent>
-    </Card>
+        <Badge
+          variant={
+            isRunning
+              ? 'success'
+              : clockSeconds === 0
+              ? 'destructive'
+              : 'secondary'
+          }
+          className="hidden sm:inline-flex text-xs"
+        >
+          {isRunning ? '● LIVE' : clockSeconds === 0 ? 'ENDED' : 'PAUSED'}
+        </Badge>
+      </div>
+
+      {/* Primary Action - Start/Pause */}
+      <Button
+        onClick={handleStartPause}
+        size="sm"
+        variant={isRunning ? 'destructive' : 'default'}
+        disabled={status === 'completed'}
+        className="h-8 px-2 text-xs font-semibold gap-1"
+      >
+        {isRunning ? (
+          <>
+            <Pause className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Pause</span>
+          </>
+        ) : (
+          <>
+            <Play className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Start</span>
+          </>
+        )}
+      </Button>
+
+      {/* Mobile: Sheet (Drawer from bottom) */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 lg:hidden"
+            disabled={status === 'completed'}
+          >
+            <Settings className="w-4 h-4" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Game Controls</SheetTitle>
+            <SheetDescription>
+              Manage period, clock, and game settings
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6">
+            <AdvancedControlsContent
+              clockSeconds={clockSeconds}
+              period={period}
+              isRunning={isRunning}
+              status={status}
+              onSetTime={handleSetTime}
+              onResetClock={handleResetClock}
+              onNextPeriod={handleNextPeriod}
+              onEndGame={handleEndGame}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop: Dialog (Modal) */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 hidden lg:flex gap-1 text-xs font-semibold"
+            disabled={status === 'completed'}
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>More</span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Game Controls</DialogTitle>
+            <DialogDescription>
+              Manage period, clock, and game settings
+            </DialogDescription>
+          </DialogHeader>
+          <AdvancedControlsContent
+            clockSeconds={clockSeconds}
+            period={period}
+            isRunning={isRunning}
+            status={status}
+            onSetTime={handleSetTime}
+            onResetClock={handleResetClock}
+            onNextPeriod={handleNextPeriod}
+            onEndGame={handleEndGame}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

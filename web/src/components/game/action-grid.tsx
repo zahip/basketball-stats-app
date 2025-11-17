@@ -53,10 +53,10 @@ export function ActionGrid({ selectedPlayer, onAction, disabled, selectedTeam = 
       disabled={isActionDisabled}
       variant={action.variant}
       size="sm"
-      className="h-11 flex-col gap-0.5 py-1.5 px-1 text-xs"
+      className="h-9 flex-col gap-0.5 py-1 px-1 text-[10px] font-semibold hover:shadow-sm transition-shadow"
     >
       <span className="font-bold leading-none">{action.label}</span>
-      <span className="text-[10px] opacity-90 leading-none">{action.sublabel}</span>
+      <span className="text-[8px] opacity-80 leading-none">{action.sublabel}</span>
     </Button>
   )
 
@@ -68,101 +68,105 @@ export function ActionGrid({ selectedPlayer, onAction, disabled, selectedTeam = 
         disabled={isActionDisabled}
         variant={action.variant}
         size="sm"
-        className="h-10 gap-1 px-2 py-1.5 text-xs"
+        className="h-8 gap-1 px-1.5 py-1 text-[10px] font-semibold hover:shadow-sm transition-shadow"
       >
         {Icon && <Icon className="h-3.5 w-3.5" />}
-        <span className="font-semibold">{action.label}</span>
+        <span className="hidden sm:inline">{action.label}</span>
       </Button>
     )
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2 h-full">
       {/* Selection Status - Compact */}
-      <Card className="bg-gradient-to-br from-muted/30 to-muted/10 border-none shadow-sm">
-        <CardContent className="p-2.5">
+      <Card className="bg-gradient-to-br from-muted/40 to-muted/20 border-none shadow-sm flex-shrink-0">
+        <CardContent className="p-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Badge
                 variant={selectedTeam === 'home' ? 'home-team' : 'away-team'}
                 size="sm"
+                className="text-[10px]"
               >
                 {selectedTeam === 'home' ? 'Your Team' : 'Opponent'}
               </Badge>
               {selectedTeam === 'home' && selectedPlayer && (
-                <Badge variant="outline" size="sm" className="text-xs">
+                <Badge variant="outline" size="sm" className="text-[9px] font-semibold">
                   #{selectedPlayer}
                 </Badge>
               )}
             </div>
             {isActionDisabled && selectedTeam === 'home' && (
-              <Badge variant="warning" size="sm" className="text-[10px]">
-                Select
+              <Badge variant="warning" size="sm" className="text-[8px] font-semibold">
+                Select Player
               </Badge>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Shooting Actions - 3x2 Grid */}
-      <Card className="border-l-4 border-l-success shadow-sm">
-        <CardHeader className="pb-1.5 pt-2">
-          <div className="flex items-center gap-1.5">
-            <Target className="h-4 w-4 text-success" />
-            <CardTitle className="text-xs font-bold">Shots</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            {shotActions.map((action) => (
-              <ShotButton key={action.type} action={action} />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* All Actions - Side by Side */}
+      <div className="flex-1 grid grid-cols-3 gap-2 min-h-0">
+        {/* Shooting Actions Column */}
+        <Card className="border-l-4 border-l-success shadow-sm flex flex-col min-h-0">
+          <CardHeader className="pb-1.5 pt-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-success" />
+              <CardTitle className="text-xs font-bold">Shots</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-2 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-1.5">
+              {shotActions.map((action) => (
+                <ShotButton key={action.type} action={action} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Play Actions - 3x2 Grid */}
-      <Card className="border-l-4 border-l-primary shadow-sm">
-        <CardHeader className="pb-1.5 pt-2">
-          <div className="flex items-center gap-1.5">
-            <Zap className="h-4 w-4 text-primary" />
-            <CardTitle className="text-xs font-bold">Plays</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            {playActions.map((action) => (
-              <PlayButton key={action.type} action={action} />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Play Actions Column */}
+        <Card className="border-l-4 border-l-primary shadow-sm flex flex-col min-h-0">
+          <CardHeader className="pb-1.5 pt-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5 text-primary" />
+              <CardTitle className="text-xs font-bold">Plays</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-2 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-2 gap-1.5">
+              {playActions.map((action) => (
+                <PlayButton key={action.type} action={action} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Other Actions - 3x1 Grid */}
-      <Card className="border-l-4 border-l-warning shadow-sm">
-        <CardHeader className="pb-1.5 pt-2">
-          <div className="flex items-center gap-1.5">
-            <Hand className="h-4 w-4 text-warning" />
-            <CardTitle className="text-xs font-bold">Other</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            {otherActions.map((action) => (
-              <Button
-                key={action.type}
-                onClick={() => handleAction(action.type)}
-                disabled={isActionDisabled}
-                variant={action.variant}
-                size="sm"
-                className="h-10 text-xs py-1.5 px-1"
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+        {/* Other Actions Column */}
+        <Card className="border-l-4 border-l-warning shadow-sm flex flex-col min-h-0">
+          <CardHeader className="pb-1.5 pt-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              <Hand className="h-3.5 w-3.5 text-warning" />
+              <CardTitle className="text-xs font-bold">Other</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="p-2 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 gap-1.5">
+              {otherActions.map((action) => (
+                <Button
+                  key={action.type}
+                  onClick={() => handleAction(action.type)}
+                  disabled={isActionDisabled}
+                  variant={action.variant}
+                  size="sm"
+                  className="h-8 text-[10px] py-1 px-1 font-semibold hover:shadow-sm transition-shadow w-full"
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

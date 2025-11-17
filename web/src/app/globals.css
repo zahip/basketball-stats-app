@@ -103,3 +103,74 @@
 .court-background {
   background: linear-gradient(135deg, #f3e8d0 0%, #e8d5b7 100%);
 }
+
+/* Modern sports app animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+/* Professional shadows for elevation */
+.shadow-scoreboard {
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.15);
+}
+
+.shadow-action {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shadow-overlay {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Smooth transitions */
+.transition-smooth {
+  @apply transition-all duration-300 ease-out;
+}
+
+/* Text overflow utilities */
+.text-truncate-line1 {
+  @apply line-clamp-1;
+}
+
+.text-truncate-line2 {
+  @apply line-clamp-2;
+}
