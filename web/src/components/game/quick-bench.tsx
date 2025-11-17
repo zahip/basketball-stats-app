@@ -139,7 +139,7 @@ export function QuickBench({
                       <Button
                         onClick={() => {
                           // Simple sub in - replaces first court player, or just add if court is empty
-                          const playerOutId = courtPlayers.length > 0 ? courtPlayers[0] : ''
+                          const playerOutId = courtPlayers.length > 0 ? courtPlayers[0].id : ''
                           onSubIn(player.id, playerOutId)
                         }}
                         variant="default"

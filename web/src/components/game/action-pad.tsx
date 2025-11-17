@@ -70,59 +70,68 @@ export function ActionPad({
       aria-label={`${label} ${sublabel || ''}`}
       title={`Record: ${label} ${sublabel || ''}`}
       className={cn(
-        'h-10 flex-col gap-0.5 py-1 px-1 text-[10px] font-semibold hover:shadow-md transition-all duration-150 active:scale-95 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
+        'h-16 flex-col gap-1 py-2 px-2 text-xs font-bold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2',
         isDisabled && 'opacity-50 cursor-not-allowed'
       )}
     >
       <span className="font-bold leading-tight">{label}</span>
       {sublabel && (
-        <span className="text-xs opacity-75 leading-tight">{sublabel}</span>
+        <span className="text-[11px] opacity-85 leading-tight">{sublabel}</span>
       )}
     </Button>
   )
 
   return (
-    <div className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto p-1">
+    <div className="flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-muted/20 to-background p-4">
       {/* Player Selection Status */}
-      {selectedTeam === 'home' && (
-        <div className="flex items-center gap-2 px-2 py-1 bg-primary/10 rounded text-[11px]">
-          <Badge
-            variant={selectedPlayer ? 'default' : 'outline'}
-            className="text-[10px] h-5"
-          >
-            {selectedPlayer ? `#${selectedPlayer}` : 'No Player'}
-          </Badge>
-          {!selectedPlayer && (
-            <span className="text-[10px] text-muted-foreground font-medium">
-              Select player
-            </span>
-          )}
-        </div>
-      )}
+      <div className="max-w-6xl mx-auto w-full">
+        {selectedTeam === 'home' && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-primary/15 rounded-lg border border-primary/30 backdrop-blur-sm">
+            <Badge
+              variant="default"
+              className="text-xs h-6 px-3"
+            >
+              {selectedPlayer ? `#${selectedPlayer}` : 'Select Player'}
+            </Badge>
+            {!selectedPlayer && (
+              <span className="text-sm text-muted-foreground font-medium">
+                🎯 Tap a player to record their actions
+              </span>
+            )}
+            {selectedPlayer && (
+              <span className="text-sm font-semibold text-primary">
+                ✓ Ready to record
+              </span>
+            )}
+          </div>
+        )}
 
-      {selectedTeam === 'away' && (
-        <div className="flex items-center gap-2 px-2 py-1 bg-blue-500/10 rounded text-[11px]">
-          <Badge variant="secondary" className="text-[10px] h-5">
-            Opponent
-          </Badge>
-          <span className="text-[10px] text-muted-foreground font-medium">
-            Team stats only
-          </span>
-        </div>
-      )}
+        {selectedTeam === 'away' && (
+          <div className="flex items-center gap-3 px-4 py-3 bg-blue-500/15 rounded-lg border border-blue-500/30 backdrop-blur-sm">
+            <Badge variant="secondary" className="text-xs h-6 px-3">
+              📊 Opponent Team
+            </Badge>
+            <span className="text-sm text-muted-foreground font-medium">
+              Recording team-level statistics only
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Three Sections Side by Side */}
-      <div className="flex gap-1 min-h-0">
+      <div className="flex gap-4 min-h-0 max-w-6xl mx-auto w-full justify-center">
         {/* Scoring Section */}
-        <Card className="border-l-4 border-l-green-500 shadow-sm flex flex-col min-h-0">
-          <CardHeader className="pb-1 pt-1 flex-shrink-0 px-2 py-1">
-            <div className="flex items-center gap-1">
-              <Target className="h-3 w-3 text-green-500" />
-              <CardTitle className="text-[10px] font-bold">Score</CardTitle>
+        <Card className="border-t-4 border-t-green-500 shadow-lg hover:shadow-xl transition-shadow flex flex-col min-h-0 flex-1 bg-white/80 backdrop-blur">
+          <CardHeader className="pb-2 pt-3 flex-shrink-0 px-4 py-3 border-b border-green-100">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-green-100 rounded-lg">
+                <Target className="h-5 w-5 text-green-600" />
+              </div>
+              <CardTitle className="text-sm font-bold text-green-900">Scoring</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-1 pt-0 min-h-0 overflow-y-auto">
-            <div className="grid grid-cols-3 gap-1 w-fit">
+          <CardContent className="p-4 min-h-0 overflow-y-auto flex-1">
+            <div className="grid grid-cols-3 gap-3">
               {scoringActions.map((action) => (
                 <ActionButton
                   key={action.type}
@@ -137,15 +146,17 @@ export function ActionPad({
         </Card>
 
         {/* Defense Section */}
-        <Card className="border-l-4 border-l-blue-500 shadow-sm flex flex-col min-h-0">
-          <CardHeader className="pb-1 pt-1 flex-shrink-0 px-2 py-1">
-            <div className="flex items-center gap-1">
-              <Shield className="h-3 w-3 text-blue-500" />
-              <CardTitle className="text-[10px] font-bold">Defense</CardTitle>
+        <Card className="border-t-4 border-t-blue-500 shadow-lg hover:shadow-xl transition-shadow flex flex-col min-h-0 flex-1 bg-white/80 backdrop-blur">
+          <CardHeader className="pb-2 pt-3 flex-shrink-0 px-4 py-3 border-b border-blue-100">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <Shield className="h-5 w-5 text-blue-600" />
+              </div>
+              <CardTitle className="text-sm font-bold text-blue-900">Defense & Boards</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-1 pt-0 min-h-0 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-1 w-fit">
+          <CardContent className="p-4 min-h-0 overflow-y-auto flex-1">
+            <div className="grid grid-cols-2 gap-3">
               {defenseActions.map((action) => (
                 <ActionButton
                   key={action.type}
@@ -159,15 +170,17 @@ export function ActionPad({
         </Card>
 
         {/* Playmaking Section */}
-        <Card className="border-l-4 border-l-purple-500 shadow-sm flex flex-col min-h-0">
-          <CardHeader className="pb-1 pt-1 flex-shrink-0 px-2 py-1">
-            <div className="flex items-center gap-1">
-              <Zap className="h-3 w-3 text-purple-500" />
-              <CardTitle className="text-[10px] font-bold">Play</CardTitle>
+        <Card className="border-t-4 border-t-purple-500 shadow-lg hover:shadow-xl transition-shadow flex flex-col min-h-0 flex-1 bg-white/80 backdrop-blur">
+          <CardHeader className="pb-2 pt-3 flex-shrink-0 px-4 py-3 border-b border-purple-100">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <Zap className="h-5 w-5 text-purple-600" />
+              </div>
+              <CardTitle className="text-sm font-bold text-purple-900">Playmaking</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-1 pt-0 min-h-0 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-1 w-fit">
+          <CardContent className="p-4 min-h-0 overflow-y-auto flex-1">
+            <div className="grid grid-cols-2 gap-3">
               {playmakingActions.map((action) => (
                 <ActionButton
                   key={action.type}

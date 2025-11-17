@@ -47,50 +47,44 @@ export function ActivePlayersBar({
   }
 
   return (
-    <Card className="border-none shadow-sm flex-shrink-0">
-      <CardContent className="p-1">
-        <div className="flex items-center justify-between gap-1 min-h-[50px]">
+    <Card className="border-none shadow-2xl bg-gradient-to-r from-white/95 via-white/92 to-white/95 backdrop-blur-md flex-shrink-0 rounded-2xl border border-white/40">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between gap-4 min-h-[100px]">
           {/* Court Players */}
           <div className="flex gap-2 flex-1 overflow-x-auto pb-2">
-            {courtPlayers.length > 0 ? (
-              courtPlayers.map((player) => (
-                <div
-                  key={player.id}
-                  className="flex flex-col items-center gap-1 flex-shrink-0"
+            {courtPlayers.map((player) => (
+              <div
+                key={player.id}
+                className="flex flex-col items-center gap-2 flex-shrink-0"
+              >
+                <Button
+                  onClick={() => onPlayerSelect(player.id)}
+                  variant={activePlayer === player.id ? 'default' : 'outline'}
+                  className={cn(
+                    'h-16 w-16 p-0 rounded-full flex flex-col items-center justify-center relative transition-all shadow-md hover:shadow-lg',
+                    activePlayer === player.id && 'ring-4 ring-primary ring-offset-2 shadow-lg scale-110 bg-primary'
+                  )}
                 >
-                  <Button
-                    onClick={() => onPlayerSelect(player.id)}
-                    variant={activePlayer === player.id ? 'default' : 'outline'}
-                    className={cn(
-                      'h-10 w-10 p-0 flex flex-col items-center justify-center relative transition-all',
-                      activePlayer === player.id && 'ring-2 ring-primary ring-offset-1 shadow-md scale-105'
-                    )}
-                  >
-                    <PlayerAvatar
-                      firstName={player.name.split(' ')[0]}
-                      lastName={player.name.split(' ')[1] || ''}
-                      src={player.avatar}
-                      jerseyNumber={player.number}
-                      className="h-6 w-6"
-                    />
-                  </Button>
+                  <PlayerAvatar
+                    firstName={player.name.split(' ')[0]}
+                    lastName={player.name.split(' ')[1] || ''}
+                    src={player.avatar}
+                    jerseyNumber={player.number}
+                    className="h-12 w-12 rounded-full"
+                  />
+                </Button>
 
-                  {/* Jersey Number */}
-                  <div className="text-[9px] font-bold text-center leading-tight">
-                    #{player.number}
-                  </div>
-
-                  {/* Playing Time */}
-                  <div className="text-[8px] font-semibold text-primary text-center">
-                    {formatTime(playingTime[player.id] || 0)}
-                  </div>
+                {/* Jersey Number */}
+                <div className="text-xs font-bold text-center leading-tight">
+                  #{player.number}
                 </div>
-              ))
-            ) : (
-              <div className="w-full flex items-center justify-center text-sm text-muted-foreground">
-                No players on court
+
+                {/* Playing Time */}
+                <div className="text-[10px] font-semibold text-primary text-center tabular-nums">
+                  {formatTime(playingTime[player.id] || 0)}
+                </div>
               </div>
-            )}
+            ))}
           </div>
 
           {/* Bench Button */}
@@ -98,18 +92,20 @@ export function ActivePlayersBar({
             onClick={onBenchOpen}
             variant="outline"
             className={cn(
-              'h-10 w-10 p-0 flex flex-col items-center justify-center gap-0.5 flex-shrink-0 relative',
-              benchPlayers.length > 0 && 'ring-2 ring-yellow-500/50'
+              'h-16 w-16 p-0 flex flex-col items-center justify-center gap-1 flex-shrink-0 relative rounded-lg shadow-md hover:shadow-lg transition-all duration-200 border-2',
+              benchPlayers.length > 0
+                ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20 ring-2 ring-yellow-400/50 hover:bg-yellow-100 dark:hover:bg-yellow-950/30'
+                : 'border-muted-foreground/30 bg-muted/50 hover:bg-muted'
             )}
           >
-            <div className="text-[9px] font-bold text-center">Bench</div>
+            <div className="text-xs font-bold text-center leading-tight">
+              {benchPlayers.length > 0 ? '🪑' : '📦'}
+            </div>
+            <div className="text-[11px] font-semibold text-center">Bench</div>
             {benchPlayers.length > 0 && (
-              <>
-                <Badge variant="secondary" className="text-[8px] h-3 px-0.5">
-                  {benchPlayers.length}
-                </Badge>
-                <ChevronDown className="h-2.5 w-2.5 text-muted-foreground" />
-              </>
+              <Badge variant="destructive" className="text-[9px] h-5 px-1.5 font-bold rounded-full">
+                {benchPlayers.length}
+              </Badge>
             )}
           </Button>
         </div>
