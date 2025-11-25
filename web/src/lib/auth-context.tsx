@@ -1,107 +1,196 @@
-'use client'
+"use client";
 
-import { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { createContext, useContext, useEffect, useState } from "react";
+import { User, Session } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
 // RBAC roles
-export type UserRole = 'coach' | 'scorer' | 'viewer'
+export type UserRole = "coach" | "scorer" | "viewer";
 
 interface AuthContextType {
-  user: User | null
-  session: Session | null
-  role: UserRole | null
-  loading: boolean
-  signIn: (email: string) => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
-  setUserRole: (role: UserRole) => void
+  user: User | null;
+  session: Session | null;
+  role: UserRole | null;
+  loading: boolean;
+  signIn: (email: string) => Promise<{ error: Error | null }>;
+  signOut: () => Promise<{ error: Error | null }>;
+  setUserRole: (role: UserRole) => void;
+  devLogin: (email: string, role: UserRole) => void; // Development mode bypass
+  isDevMode: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [role, setRole] = useState<UserRole | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [loading, setLoading] = useState(true);
+  // TEMPORARY: Force dev mode to true
+  const [isDevMode, setIsDevMode] = useState(true);
+
+  // Development mode detection (client-side only to avoid hydration mismatch)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      const isDev = hostname === 'localhost' ||
+                    hostname === '127.0.0.1' ||
+                    process.env.NODE_ENV === 'development';
+      setIsDevMode(isDev);
+    }
+  }, []);
+
+  // Get stored role or determine from email
+  const getUserRole = (user: User): UserRole => {
+    // First check localStorage for stored role (only in browser)
+    if (typeof window !== "undefined") {
+      const storedRole = localStorage.getItem(`user_role_${user.id}`);
+      if (storedRole && ["coach", "scorer", "viewer"].includes(storedRole)) {
+        return storedRole as UserRole;
+      }
+    }
+
+    // Fallback to email-based detection
+    const email = user.email?.toLowerCase() || "";
+    if (email.includes("coach")) return "coach";
+    if (email.includes("scorer")) return "scorer";
+
+    // Default role for new users
+    return "viewer";
+  };
+
+  // Function to update user role
+  const setUserRole = (newRole: UserRole) => {
+    if (user && typeof window !== "undefined") {
+      localStorage.setItem(`user_role_${user.id}`, newRole);
+      setRole(newRole);
+    }
+  };
 
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setSession(session)
-      setUser(session?.user ?? null)
-      
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
+
       if (session?.user) {
         // Get user role from metadata or database
-        const userRole = getUserRole(session.user)
-        setRole(userRole)
+        const userRole = getUserRole(session.user);
+        setRole(userRole);
       }
-      
-      setLoading(false)
-    }
 
-    getInitialSession()
+      setLoading(false);
+    };
+
+    getInitialSession();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        
-        if (session?.user) {
-          const userRole = getUserRole(session.user)
-          setRole(userRole)
-        } else {
-          setRole(null)
-        }
-        
-        setLoading(false)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        const userRole = getUserRole(session.user);
+        setRole(userRole);
+      } else {
+        setRole(null);
       }
-    )
 
-    return () => subscription.unsubscribe()
-  }, [])
+      setLoading(false);
+    });
 
-  // Get stored role or determine from email
-  const getUserRole = (user: User): UserRole => {
-    // First check localStorage for stored role
-    const storedRole = localStorage.getItem(`user_role_${user.id}`)
-    if (storedRole && ['coach', 'scorer', 'viewer'].includes(storedRole)) {
-      return storedRole as UserRole
-    }
-    
-    // Fallback to email-based detection
-    const email = user.email?.toLowerCase() || ''
-    if (email.includes('coach')) return 'coach'
-    if (email.includes('scorer')) return 'scorer'
-    
-    // Default role for new users
-    return 'viewer'
-  }
-
-  // Function to update user role
-  const setUserRole = (newRole: UserRole) => {
-    if (user) {
-      localStorage.setItem(`user_role_${user.id}`, newRole)
-      setRole(newRole)
-    }
-  }
+    return () => subscription.unsubscribe();
+  }, []);
 
   const signIn = async (email: string) => {
+    const redirectUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/callback`
+        : "/auth/callback";
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: redirectUrl,
       },
-    })
-    return { error }
-  }
+    });
+    return { error };
+  };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
-  }
+    // Clear dev mode session
+    if (isDevMode && typeof window !== "undefined") {
+      localStorage.removeItem("dev_user");
+      localStorage.removeItem("dev_role");
+      setUser(null);
+      setSession(null);
+      setRole(null);
+      return { error: null };
+    }
+
+    const { error } = await supabase.auth.signOut();
+    return { error };
+  };
+
+  // Development mode bypass - creates a mock user session
+  const devLogin = (email: string, userRole: UserRole) => {
+    if (!isDevMode || typeof window === "undefined") return;
+
+    const mockUser = {
+      id: "dev-user-" + Date.now(),
+      email,
+      app_metadata: {},
+      user_metadata: {},
+      aud: "authenticated",
+      created_at: new Date().toISOString(),
+    } as User;
+
+    const mockSession = {
+      access_token: "dev-token",
+      refresh_token: "dev-refresh",
+      expires_in: 3600,
+      token_type: "bearer",
+      user: mockUser,
+    } as Session;
+
+    // Store in localStorage for persistence across refreshes
+    localStorage.setItem("dev_user", JSON.stringify(mockUser));
+    localStorage.setItem("dev_role", userRole);
+
+    setUser(mockUser);
+    setSession(mockSession);
+    setRole(userRole);
+  };
+
+  // Load dev mode session on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return; // Skip on server
+
+    if (isDevMode && !user) {
+      const devUser = localStorage.getItem("dev_user");
+      const devRole = localStorage.getItem("dev_role");
+
+      if (devUser && devRole) {
+        const parsedUser = JSON.parse(devUser);
+        const mockSession = {
+          access_token: "dev-token",
+          refresh_token: "dev-refresh",
+          expires_in: 3600,
+          token_type: "bearer",
+          user: parsedUser,
+        } as Session;
+
+        setUser(parsedUser);
+        setSession(mockSession);
+        setRole(devRole as UserRole);
+      }
+    }
+  }, [isDevMode, user]);
 
   const value = {
     user,
@@ -111,42 +200,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signOut,
     setUserRole,
-  }
+    devLogin,
+    isDevMode,
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider')
+    throw new Error("useAuth must be used within an AuthProvider");
   }
-  return context
+  return context;
 }
 
 // Role-based access control hooks
 export function useRequireAuth(requiredRole?: UserRole) {
-  const { user, role, loading } = useAuth()
-  
-  const hasAccess = user && (!requiredRole || role === requiredRole || role === 'coach')
-  
+  const { user, role, loading } = useAuth();
+
+  const hasAccess =
+    user && (!requiredRole || role === requiredRole || role === "coach");
+
   return {
     user,
     role,
     loading,
     hasAccess,
     isAuthenticated: !!user,
-  }
+  };
 }
 
 export function useRoleAccess() {
-  const { role } = useAuth()
-  
+  const { role } = useAuth();
+
   return {
-    isCoach: role === 'coach',
-    isScorer: role === 'scorer' || role === 'coach',
+    isCoach: role === "coach",
+    isScorer: role === "scorer" || role === "coach",
     isViewer: !!role,
-    canEdit: role === 'coach' || role === 'scorer',
-    canManage: role === 'coach',
-  }
+    canEdit: role === "coach" || role === "scorer",
+    canManage: role === "coach",
+  };
 }

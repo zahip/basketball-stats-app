@@ -3,11 +3,21 @@ import { supabase } from './supabase'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
 
 async function getAuthHeaders(): Promise<HeadersInit> {
-  const { data: { session } } = await supabase.auth.getSession()
-
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   }
+
+  // In development mode, check for dev session first
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    const devUser = localStorage.getItem('dev_user')
+    if (devUser) {
+      headers['Authorization'] = 'Bearer dev-token'
+      return headers
+    }
+  }
+
+  // Otherwise use Supabase session
+  const { data: { session } } = await supabase.auth.getSession()
 
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`

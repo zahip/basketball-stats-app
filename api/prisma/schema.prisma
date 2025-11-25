@@ -106,25 +106,27 @@ enum TeamSide {
 }
 
 model BoxScorePlayer {
-  id        String @id @default(cuid())
-  gameId    String
-  playerId  String
-  minutes   Int    @default(0)
-  pts       Int    @default(0)
-  fgm2      Int    @default(0)
-  fga2      Int    @default(0)
-  fgm3      Int    @default(0)
-  fga3      Int    @default(0)
-  ftm       Int    @default(0)
-  fta       Int    @default(0)
-  oreb      Int    @default(0)
-  dreb      Int    @default(0)
-  ast       Int    @default(0)
-  stl       Int    @default(0)
-  blk       Int    @default(0)
-  tov       Int    @default(0)
-  pf        Int    @default(0)
-  plusMinus Int    @default(0)
+  id            String  @id @default(cuid())
+  gameId        String
+  playerId      String
+  secondsPlayed Int     @default(0)
+  onCourt       Boolean @default(false)
+  lastSubTime   Int?
+  pts           Int     @default(0)
+  fgm2          Int     @default(0)
+  fga2          Int     @default(0)
+  fgm3          Int     @default(0)
+  fga3          Int     @default(0)
+  ftm           Int     @default(0)
+  fta           Int     @default(0)
+  oreb          Int     @default(0)
+  dreb          Int     @default(0)
+  ast           Int     @default(0)
+  stl           Int     @default(0)
+  blk           Int     @default(0)
+  tov           Int     @default(0)
+  pf            Int     @default(0)
+  plusMinus     Int     @default(0)
 
   @@unique([gameId, playerId])
   @@map("boxscore_players")

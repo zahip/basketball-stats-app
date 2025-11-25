@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -23,6 +22,7 @@ import { PlayByPlay } from "@/components/game/play-by-play";
 import { eventQueueManager } from "@/lib/offline-queue";
 import { useToast } from "@/hooks/use-toast";
 import { useRealtimeGame } from "@/hooks/use-realtime-game";
+import { useGameClock } from "@/hooks/use-game-clock";
 import { usePlayersStore } from "@/lib/stores/players-store";
 import { gamesApi, UpdateGameData } from "@/lib/api-client";
 
@@ -132,16 +132,14 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   const [boxScoreOpen, setBoxScoreOpen] = useState(false);
   const [playByPlayOpen, setPlayByPlayOpen] = useState(false);
   const [benchOpen, setBenchOpen] = useState(false);
-  const [playingTime, setPlayingTime] = useState<Record<string, number>>({});
   const [courtPlayers, setCourtPlayers] = useState<string[]>([]);
 
   const { toast } = useToast();
-  const { gameState, connectionStatus, isConnected, broadcastScoreUpdate } =
+  const { gameState, isConnected, broadcastScoreUpdate } =
     useRealtimeGame(gameId);
   const queryClient = useQueryClient();
   const lastMutationRef = useRef<number>(0);
   const mutationSequenceRef = useRef<number>(0);
-  const clockIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { getActivePlayers } = usePlayersStore();
   const allPlayers = getActivePlayers();
@@ -163,6 +161,43 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     refetchOnWindowFocus: true,
     refetchInterval: false,
   });
+
+  // Initial status for useGameClock hook
+  const initialStatus = gameApiData
+    ? mapGameStatus(gameApiData.game.status)
+    : ("scheduled" as const);
+
+  // Game clock hook - manages timer and player playing time
+  const { clockSec, playingTime, resetClock } = useGameClock({
+    gameId,
+    initialClockSec: gameApiData?.game.clockSec ?? 600,
+    initialPeriod: gameApiData?.game.period ?? 1,
+    status: initialStatus,
+    courtPlayers,
+  });
+
+  // Derived display data (uses local clockSec from useGameClock)
+  const displayData = gameApiData
+    ? {
+        id: gameApiData.id,
+        homeTeam: gameApiData.game.team?.name || "Your Team",
+        awayTeam: gameApiData.game.opponent || "Opponent",
+        homeScore: gameApiData.game.ourScore,
+        awayScore: gameApiData.game.oppScore,
+        status: mapGameStatus(gameApiData.game.status),
+        period: gameApiData.game.period,
+        clock: formatClock(clockSec), // Use local clock from useGameClock
+      }
+    : {
+        id: gameId,
+        homeTeam: "Your Team",
+        awayTeam: "Opponent",
+        homeScore: 0,
+        awayScore: 0,
+        status: "scheduled" as const,
+        period: 1,
+        clock: formatClock(clockSec), // Use local clock from useGameClock
+      };
 
   // Game update mutation
   const updateGameMutation = useMutation({
@@ -246,8 +281,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
       return { previousGameData, updatedData, sequence: currentSequence };
     },
-    onSuccess: async (data, _variables, context: unknown) => {
-      const ctx = context as { sequence?: number };
+    onSuccess: async (data) => {
       const currentCacheData = queryClient.getQueryData(["game", gameId]) as
         | { game: { ourScore: number; oppScore: number } }
         | undefined;
@@ -316,6 +350,11 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     }
   }, [gameState, gameApiData, queryClient, gameId]);
 
+  const updatePendingEventsCount = async () => {
+    const pendingEvents = await eventQueueManager.getPendingEvents(gameId);
+    setPendingEventsCount(pendingEvents.length);
+  };
+
   // Setup offline queue
   useEffect(() => {
     eventQueueManager.setupNetworkListeners();
@@ -323,18 +362,14 @@ function LiveGameContent({ gameId }: { gameId: string }) {
 
     const interval = setInterval(updatePendingEventsCount, 5000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId]);
-
-  const updatePendingEventsCount = async () => {
-    const pendingEvents = await eventQueueManager.getPendingEvents(gameId);
-    setPendingEventsCount(pendingEvents.length);
-  };
 
   const handlePlayerSelect = (playerId: string) => {
     setSelectedPlayer(playerId === "" ? null : playerId);
   };
 
-  const handleAction = async (eventType: string, data: any) => {
+  const handleAction = async (eventType: string, data?: Record<string, unknown>) => {
     if (selectedTeam === "home" && !selectedPlayer) {
       toast({
         title: "Selection Required",
@@ -454,6 +489,7 @@ function LiveGameContent({ gameId }: { gameId: string }) {
   const handleNextPeriod = async () => {
     const nextPeriod = displayData.period + 1;
     if (nextPeriod <= 4) {
+      resetClock(600); // Reset local clock immediately
       updateGameMutation.mutate({
         period: nextPeriod,
         clockSec: 600,
@@ -461,49 +497,140 @@ function LiveGameContent({ gameId }: { gameId: string }) {
     }
   };
 
-  const handleSubIn = (playerInId: string, playerOutId: string) => {
+  const handleSubIn = async (playerInId: string, playerOutId: string) => {
     const newCourt = courtPlayers.filter((id) => id !== playerOutId);
     newCourt.push(playerInId);
     setCourtPlayers(newCourt);
+
+    // Record SUB_OUT event for player leaving court
+    if (playerOutId) {
+      const playerOut = allPlayers.find((p) => p.id === playerOutId);
+      if (playerOut) {
+        await eventQueueManager.addEvent(
+          gameId,
+          "SUB_OUT",
+          playerOut.number.toString(),
+          "home",
+          {
+            period: displayData.period,
+            clockSec: clockSec,
+          }
+        );
+      }
+    }
+
+    // Record SUB_IN event for player entering court
+    const playerIn = allPlayers.find((p) => p.id === playerInId);
+    if (playerIn) {
+      await eventQueueManager.addEvent(
+        gameId,
+        "SUB_IN",
+        playerIn.number.toString(),
+        "home",
+        {
+          period: displayData.period,
+          clockSec: clockSec,
+        }
+      );
+    }
+
     toast({
       title: "Substitution",
       description: "Player substituted",
     });
+
+    updatePendingEventsCount();
   };
 
-  const handleSubOut = (playerId: string) => {
+  const handleSubOut = async (playerId: string) => {
     setCourtPlayers(courtPlayers.filter((id) => id !== playerId));
+
+    // Record SUB_OUT event
+    const player = allPlayers.find((p) => p.id === playerId);
+    if (player) {
+      await eventQueueManager.addEvent(
+        gameId,
+        "SUB_OUT",
+        player.number.toString(),
+        "home",
+        {
+          period: displayData.period,
+          clockSec: clockSec,
+        }
+      );
+
+      toast({
+        title: "Substitution",
+        description: `${player.name} out`,
+      });
+
+      updatePendingEventsCount();
+    }
   };
 
-  const handleCourtPlayersChange = (
+  const handleCourtPlayersChange = async (
     newCourtPlayers: typeof courtPlayersList
   ) => {
-    // Convert Player[] back to string[] (IDs) and update state
-    setCourtPlayers(newCourtPlayers.map((p) => p.id));
-  };
+    const newCourtPlayerIds = newCourtPlayers.map((p) => p.id);
+    const oldCourtPlayerIds = courtPlayers;
 
-  // Derived display data
-  const displayData = gameApiData
-    ? {
-        id: gameApiData.id,
-        homeTeam: gameApiData.game.team?.name || "Your Team",
-        awayTeam: gameApiData.game.opponent || "Opponent",
-        homeScore: gameApiData.game.ourScore,
-        awayScore: gameApiData.game.oppScore,
-        status: mapGameStatus(gameApiData.game.status),
-        period: gameApiData.game.period,
-        clock: formatClock(gameApiData.game.clockSec),
+    // Find players who were added (SUB_IN)
+    const playersIn = newCourtPlayerIds.filter(
+      (id) => !oldCourtPlayerIds.includes(id)
+    );
+
+    // Find players who were removed (SUB_OUT)
+    const playersOut = oldCourtPlayerIds.filter(
+      (id) => !newCourtPlayerIds.includes(id)
+    );
+
+    // Update state first
+    setCourtPlayers(newCourtPlayerIds);
+
+    // Record SUB_OUT events for players leaving court
+    for (const playerId of playersOut) {
+      const player = allPlayers.find((p) => p.id === playerId);
+      if (player) {
+        await eventQueueManager.addEvent(
+          gameId,
+          "SUB_OUT",
+          player.number.toString(),
+          "home",
+          {
+            period: displayData.period,
+            clockSec: clockSec,
+          }
+        );
       }
-    : {
-        id: gameId,
-        homeTeam: "Your Team",
-        awayTeam: "Opponent",
-        homeScore: 0,
-        awayScore: 0,
-        status: "scheduled" as const,
-        period: 1,
-        clock: "10:00",
-      };
+    }
+
+    // Record SUB_IN events for players entering court
+    for (const playerId of playersIn) {
+      const player = allPlayers.find((p) => p.id === playerId);
+      if (player) {
+        await eventQueueManager.addEvent(
+          gameId,
+          "SUB_IN",
+          player.number.toString(),
+          "home",
+          {
+            period: displayData.period,
+            clockSec: clockSec,
+          }
+        );
+      }
+    }
+
+    // Update pending events count if any subs occurred
+    if (playersIn.length > 0 || playersOut.length > 0) {
+      updatePendingEventsCount();
+
+      toast({
+        title: "Substitution",
+        description: `${playersOut.length} out, ${playersIn.length} in`,
+      });
+    }
+  };
 
   if (isLoading) {
     return (

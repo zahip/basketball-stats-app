@@ -7,6 +7,7 @@ import {
   broadcastGameEvent,
   broadcastGameHeader,
   broadcastBoxScore,
+  broadcastPlayerCourtStatus,
 } from "@/lib/supabase";
 import { calculateBoxScores } from "@/lib/boxscore";
 
@@ -105,6 +106,26 @@ events.post(
           teamBoxScores,
           updatedAt: new Date().toISOString(),
         });
+      }
+
+      // Check if any substitution events were processed
+      const hasSubstitutionEvents = result.events.some(
+        event => event.type === 'SUB_IN' || event.type === 'SUB_OUT'
+      );
+
+      // Broadcast player court status if substitutions occurred
+      if (hasSubstitutionEvents) {
+        const playerBoxScores = await prisma.boxScorePlayer.findMany({
+          where: { gameId },
+          select: {
+            playerId: true,
+            onCourt: true,
+            lastSubTime: true,
+            secondsPlayed: true
+          }
+        });
+
+        await broadcastPlayerCourtStatus(gameId, playerBoxScores);
       }
 
       return c.json(

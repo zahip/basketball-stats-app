@@ -1,9 +1,32 @@
 import { Context, Next } from 'hono'
 import { supabase } from '@/lib/supabase'
 
+// Development mode bypass
+const isDevelopment = process.env.NODE_ENV === 'development'
+
 export const authMiddleware = async (c: Context, next: Next): Promise<Response | void> => {
+  // In development mode, allow requests with dev-token
+  if (isDevelopment) {
+    const authHeader = c.req.header('Authorization')
+
+    if (authHeader?.includes('dev-token')) {
+      // Create mock dev user
+      const mockUser = {
+        id: 'dev-user',
+        email: 'dev@local',
+        app_metadata: {},
+        user_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+      }
+      c.set('user', mockUser)
+      await next()
+      return
+    }
+  }
+
   const authHeader = c.req.header('Authorization')
-  
+
   if (!authHeader?.startsWith('Bearer ')) {
     return c.json({ error: 'Authorization header required' }, 401)
   }
@@ -12,14 +35,14 @@ export const authMiddleware = async (c: Context, next: Next): Promise<Response |
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token)
-    
+
     if (error || !user) {
       return c.json({ error: 'Invalid token' }, 401)
     }
 
     // Add user to context
     c.set('user', user)
-    
+
     await next()
   } catch (error) {
     return c.json({ error: 'Authentication failed' }, 401)

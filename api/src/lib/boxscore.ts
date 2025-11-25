@@ -28,7 +28,7 @@ export async function calculateBoxScores(gameId: string, tx: any) {
 
   // Create jersey number -> player UUID mapping
   const jerseyToPlayerId = new Map<string, string>();
-  players.forEach((player) => {
+  players.forEach((player: { id: string; jersey: number }) => {
     jerseyToPlayerId.set(player.jersey.toString(), player.id);
   });
 
@@ -72,6 +72,9 @@ export async function calculateBoxScores(gameId: string, tx: any) {
 
   // Initialize player stats map
   const playerStats = new Map<string, any>();
+
+  // Track players on court by period
+  const playersOnCourt = new Map<string, { onCourt: boolean; lastSubTime: number | null }>();
 
   // Process each event
   for (const event of events) {
@@ -127,6 +130,23 @@ export async function calculateBoxScores(gameId: string, tx: any) {
         break;
     }
 
+    // Handle SUB_IN/SUB_OUT for non-US team (opponent) - just track for period events
+    if (event.playerId && event.teamSide === "OPP") {
+      const oppPlayerId = `OPP_${event.playerId}`; // Use a synthetic ID for opponent players
+
+      if (!playersOnCourt.has(oppPlayerId)) {
+        playersOnCourt.set(oppPlayerId, { onCourt: false, lastSubTime: null });
+      }
+
+      if (event.type === EventType.SUB_IN) {
+        playersOnCourt.get(oppPlayerId)!.onCourt = true;
+        playersOnCourt.get(oppPlayerId)!.lastSubTime = event.clockSec;
+      } else if (event.type === EventType.SUB_OUT) {
+        playersOnCourt.get(oppPlayerId)!.onCourt = false;
+        playersOnCourt.get(oppPlayerId)!.lastSubTime = null;
+      }
+    }
+
     // Update player stats if playerId is present
     // FIX: Map jersey number (from event.playerId) to actual player UUID
     if (event.playerId && event.teamSide === "US") {
@@ -143,7 +163,9 @@ export async function calculateBoxScores(gameId: string, tx: any) {
         playerStats.set(actualPlayerId, {
           gameId,
           playerId: actualPlayerId, // Use UUID, not jersey number
-          minutes: 0, // TODO: Calculate from SUB events
+          secondsPlayed: 0,
+          onCourt: false,
+          lastSubTime: null,
           pts: 0,
           fgm2: 0,
           fga2: 0,
@@ -212,6 +234,53 @@ export async function calculateBoxScores(gameId: string, tx: any) {
         case EventType.FOUL:
           player.pf++;
           break;
+        case EventType.SUB_IN:
+          // Player enters court
+          player.onCourt = true;
+          player.lastSubTime = event.clockSec;
+          playersOnCourt.set(actualPlayerId, { onCourt: true, lastSubTime: event.clockSec });
+          break;
+        case EventType.SUB_OUT:
+          // Player leaves court - calculate time played
+          if (player.onCourt && player.lastSubTime !== null) {
+            // Clock counts down, so: timePlayedInSeconds = lastSubTime - currentClockSec
+            const timePlayedInSeconds = Math.max(0, player.lastSubTime - event.clockSec);
+            player.secondsPlayed += timePlayedInSeconds;
+          }
+          player.onCourt = false;
+          player.lastSubTime = null;
+          playersOnCourt.set(actualPlayerId, { onCourt: false, lastSubTime: null });
+          break;
+      }
+    }
+
+    // Handle period events for all players
+    if (event.type === EventType.END_PERIOD) {
+      // Accumulate time for all players on court when period ends
+      for (const [playerId, courtStatus] of playersOnCourt) {
+        if (courtStatus.onCourt && courtStatus.lastSubTime !== null) {
+          const player = playerStats.get(playerId);
+          if (player) {
+            // Clock counts down to 0 at end of period
+            const timePlayedInSeconds = Math.max(0, courtStatus.lastSubTime - 0);
+            player.secondsPlayed += timePlayedInSeconds;
+            // Reset lastSubTime but keep onCourt status
+            player.lastSubTime = null;
+            courtStatus.lastSubTime = null;
+          }
+        }
+      }
+    } else if (event.type === EventType.START_PERIOD) {
+      // Set lastSubTime for all players on court when period starts
+      const periodStartTime = event.clockSec; // Usually 600 (10 minutes)
+      for (const [playerId, courtStatus] of playersOnCourt) {
+        if (courtStatus.onCourt) {
+          const player = playerStats.get(playerId);
+          if (player) {
+            player.lastSubTime = periodStartTime;
+            courtStatus.lastSubTime = periodStartTime;
+          }
+        }
       }
     }
   }

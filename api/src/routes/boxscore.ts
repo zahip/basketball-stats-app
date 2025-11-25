@@ -49,6 +49,7 @@ boxscore.get('/:gameId/boxscore/players', async (c) => {
       const player = players.find(p => p.id === boxScore.playerId)
       return {
         ...boxScore,
+        minutes: Math.floor(boxScore.secondsPlayed / 60), // Computed field for display
         player: player ? {
           firstName: player.firstName,
           lastName: player.lastName,
@@ -107,6 +108,7 @@ boxscore.get('/:gameId/boxscore', async (c) => {
       const player = players.find(p => p.id === boxScore.playerId)
       return {
         ...boxScore,
+        minutes: Math.floor(boxScore.secondsPlayed / 60), // Computed field for display
         player: player ? {
           firstName: player.firstName,
           lastName: player.lastName,

@@ -115,11 +115,11 @@ games.get('/', async (c) => {
   try {
     const teamId = c.req.query('teamId')
     const status = c.req.query('status')
-    
+
     const where: any = {}
     if (teamId) where.teamId = teamId
     if (status) where.status = status.toUpperCase()
-    
+
     const games = await prisma.game.findMany({
       where,
       include: {
@@ -130,10 +130,67 @@ games.get('/', async (c) => {
       },
       orderBy: { date: 'desc' }
     })
-    
+
     return c.json({ games })
   } catch (error) {
     return c.json({ error: 'Failed to fetch games' }, 500)
+  }
+})
+
+// GET /games/:gameId/court - Get current players on court
+games.get('/:gameId/court', async (c) => {
+  try {
+    const gameId = c.req.param('gameId')
+
+    // Get all player box scores with court status
+    const playerBoxScores = await prisma.boxScorePlayer.findMany({
+      where: {
+        gameId,
+        onCourt: true // Only get players currently on court
+      },
+      select: {
+        playerId: true,
+        onCourt: true,
+        lastSubTime: true,
+        secondsPlayed: true
+      }
+    })
+
+    // Get player details for enrichment
+    const playerIds = playerBoxScores.map(p => p.playerId)
+    const players = await prisma.player.findMany({
+      where: { id: { in: playerIds } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        jersey: true,
+        position: true,
+        avatarUrl: true
+      }
+    })
+
+    // Merge player data
+    const playersOnCourt = playerBoxScores.map(boxScore => {
+      const player = players.find(p => p.id === boxScore.playerId)
+      return {
+        ...boxScore,
+        minutes: Math.floor(boxScore.secondsPlayed / 60),
+        player: player || null
+      }
+    })
+
+    // Sort by jersey number
+    playersOnCourt.sort((a, b) => (a.player?.jersey || 0) - (b.player?.jersey || 0))
+
+    return c.json({
+      gameId,
+      playersOnCourt,
+      count: playersOnCourt.length
+    })
+  } catch (error) {
+    console.error('Failed to fetch players on court:', error)
+    return c.json({ error: 'Failed to fetch players on court' }, 500)
   }
 })
 

@@ -80,3 +80,28 @@ export const broadcastBoxScore = async (gameId: string, boxscore: any) => {
     console.error('❌ Failed to broadcast boxscore update:', error)
   }
 }
+
+// Broadcast player court status updates (substitutions)
+export const broadcastPlayerCourtStatus = async (gameId: string, playerBoxScores: any[]) => {
+  try {
+    const channel = supabase.channel(`game:${gameId}`)
+
+    // CRITICAL FIX: Subscribe to channel before sending
+    await channel.subscribe()
+
+    await channel.send({
+      type: 'broadcast',
+      event: 'player_court_status',
+      payload: {
+        playerBoxScores,
+        updatedAt: new Date().toISOString()
+      }
+    })
+    console.log(`📡 Broadcasted player court status for game ${gameId}`)
+
+    // Cleanup: Unsubscribe after sending
+    await channel.unsubscribe()
+  } catch (error) {
+    console.error('❌ Failed to broadcast player court status:', error)
+  }
+}

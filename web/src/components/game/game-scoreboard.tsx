@@ -60,7 +60,7 @@ export function GameScoreboard({
             </div>
 
             {isActive && (
-              <Badge variant="default" className="animate-pulse gap-2 bg-green-500 hover:bg-green-600">
+              <Badge variant="default" className="gap-2 bg-green-500 hover:bg-green-600">
                 <span className="h-2.5 w-2.5 rounded-full bg-white animate-pulse"></span>
                 <span className="text-xs font-bold">LIVE</span>
               </Badge>
