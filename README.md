@@ -1,247 +1,259 @@
-# Basketball Stats App
+# Full-Stack Starter Template
 
-A production-grade PWA for tracking live basketball game statistics. Built with Next.js frontend and Hono backend.
+A production-ready full-stack web application starter built with modern technologies.
 
 ## Tech Stack
 
-### Frontend (`web/`)
+### Frontend
+- **Next.js 15** - React framework with App Router
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Utility-first styling
+- **shadcn/ui** - Beautiful UI components
+- **React Query** - Data fetching and caching
+- **Dexie** - IndexedDB wrapper for offline storage
+- **PWA** - Progressive Web App support
 
-- **Framework**: Next.js 15 (App Router) + TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **State Management**: TanStack Query + Zustand
-- **Offline Support**: Dexie (IndexedDB)
-- **PWA**: next-pwa
-- **Charts**: Recharts + react-konva (shot charts)
-- **Auth**: Supabase Auth
+### Backend
+- **Hono** - Lightweight web framework
+- **Prisma** - Type-safe ORM
+- **PostgreSQL** - Relational database
+- **Supabase** - Auth and real-time infrastructure
+- **TypeScript** - Type safety
 
-### Backend (`api/`)
-
-- **Framework**: Hono + TypeScript
-- **Database**: Postgres (Supabase/Neon) + Prisma ORM
-- **Validation**: Zod
-- **Realtime**: Supabase Realtime
-- **Monitoring**: Sentry
+### Infrastructure
+- **Supabase Auth** - JWT-based authentication
+- **Supabase Realtime** - WebSocket-based real-time updates
+- **CORS** - Cross-origin resource sharing
+- **Sentry** - Error tracking (optional)
 
 ## Project Structure
 
 ```
 basketball-stats-app/
-├── web/                    # Next.js frontend
+├── api/                          # Backend (Hono)
 │   ├── src/
-│   │   ├── app/           # App Router pages
-│   │   ├── components/    # React components
-│   │   └── lib/          # Utilities, stores, database
-│   ├── public/           # Static assets
+│   │   ├── index.ts             # Server entry point
+│   │   ├── middleware/          # Auth, CORS, idempotency
+│   │   └── lib/
+│   │       ├── db.ts            # Prisma client
+│   │       └── supabase.ts      # Supabase client
+│   ├── prisma/
+│   │   └── schema.prisma        # Database schema
 │   └── package.json
-├── api/                   # Hono backend
+│
+├── web/                          # Frontend (Next.js)
 │   ├── src/
-│   │   ├── routes/       # API routes
-│   │   ├── lib/          # Database, validation, utilities
-│   │   └── middleware/   # Auth, logging, etc.
-│   ├── prisma/           # Database schema & migrations
+│   │   ├── app/                 # Next.js App Router
+│   │   │   ├── page.tsx         # Home page
+│   │   │   ├── layout.tsx       # Root layout
+│   │   │   └── globals.css      # Global styles
+│   │   ├── components/
+│   │   │   └── ui/              # shadcn/ui components
+│   │   ├── lib/
+│   │   │   ├── api-client.ts    # API fetch wrapper
+│   │   │   ├── supabase.ts      # Supabase client
+│   │   │   ├── db.ts            # Dexie setup
+│   │   │   ├── providers.tsx    # React Query + Auth
+│   │   │   └── utils.ts         # Utilities
+│   │   └── hooks/
+│   │       └── use-toast.ts     # Toast notifications
 │   └── package.json
+│
 └── README.md
 ```
 
-## Development Setup
+## Quick Start
 
 ### Prerequisites
+- Node.js 18+ and pnpm
+- PostgreSQL database (or use Supabase/Neon)
+- Supabase project (for auth and realtime)
 
-- Node.js 18+
-- PostgreSQL database (or Supabase account)
+### 1. Setup Environment Variables
 
-### 1. Environment Setup
-
-#### Frontend (.env.local)
-
+#### Backend (`api/.env`)
 ```bash
-cp web/.env.example web/.env.local
-# Edit with your Supabase credentials
+# Copy example
+cp api/.env.example api/.env
+
+# Edit with your values
+DATABASE_URL="postgresql://user:password@host:5432/database"
+DIRECT_URL="postgresql://user:password@host:5432/database"
+SUPABASE_URL="https://your-project.supabase.co"
+SUPABASE_SERVICE_KEY="your-service-key"
+PORT=3002
+FRONTEND_URL="http://localhost:3000"
 ```
 
-#### Backend (.env)
-
+#### Frontend (`web/.env.local`)
 ```bash
-cp api/.env.example api/.env
-# Edit with your database and Supabase credentials
+# Copy example
+cp web/.env.example web/.env.local
+
+# Edit with your values
+NEXT_PUBLIC_API_URL="http://localhost:3002"
+NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key"
 ```
 
 ### 2. Install Dependencies
 
 ```bash
-# Frontend
-cd web
-npm install
-
-# Backend
-cd ../api
-npm install
+# Install all dependencies
+cd api && pnpm install
+cd ../web && pnpm install
 ```
 
-### 3. Database Setup
+### 3. Setup Database
 
 ```bash
-# In api/ directory
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push schema to database
-npm run db:seed      # Seed with sample data
+cd api
+
+# Generate Prisma client
+pnpm db:generate
+
+# Run migrations (if you have any)
+pnpm db:migrate
+
+# Or push schema directly (for development)
+pnpm db:push
 ```
 
 ### 4. Run Development Servers
 
 ```bash
-# Terminal 1 - Backend (API)
+# Terminal 1: Backend
 cd api
-npm run dev          # Runs on http://localhost:3002
+pnpm dev
+# Runs on http://localhost:3002
 
-# Terminal 2 - Frontend (Web)
+# Terminal 2: Frontend
 cd web
-npm run dev          # Runs on http://localhost:3000
+pnpm dev
+# Runs on http://localhost:3000
 ```
 
-## Key Features
+### 5. Open in Browser
 
-### Live Game Tracking
+Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
-- Real-time event recording (shots, rebounds, assists, etc.)
-- Offline-first with automatic sync
-- Touch-optimized interface for tablets
-- Undo last event functionality
+## Available Scripts
 
-### Statistics & Reporting
-
-- Live box scores (team & player)
-- Four factors analysis (eFG%, TS%, etc.)
-- Shot charts with court visualization
-- Export to PDF
-
-### Offline Support
-
-- Events queued in IndexedDB when offline
-- Background sync with exponential backoff
-- Optimistic UI updates
-
-### Realtime Updates
-
-- Multiple devices can view same game
-- Supabase Realtime for instant updates
-- Role-based access (coach, scorer, viewer)
-
-## API Endpoints
-
+### Backend (api/)
+```bash
+pnpm dev              # Start development server
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm db:generate      # Generate Prisma client
+pnpm db:migrate       # Run migrations
+pnpm db:push          # Push schema to database
+pnpm db:studio        # Open Prisma Studio
 ```
-GET    /health                           # Health check
-GET    /teams/:teamId                    # Get team details
-GET    /teams/:teamId/players            # Get team players
-POST   /teams/:teamId/players            # Create player (auth required)
 
-GET    /games                            # List games (filter by team/status)
-POST   /games                            # Create game (auth required)
-GET    /games/:gameId                    # Get game details
-PATCH  /games/:gameId                    # Update game state (auth required)
+### Frontend (web/)
+```bash
+pnpm dev              # Start development server
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+pnpm type-check       # Run TypeScript compiler
+```
 
-POST   /games/:gameId/events             # Ingest events (auth + idempotency)
-GET    /games/:gameId/events             # Get play-by-play events
+## Features
 
-GET    /games/:gameId/boxscore           # Complete box score (team + players)
-GET    /games/:gameId/boxscore/team      # Team box scores with advanced stats
-GET    /games/:gameId/boxscore/players   # Player box scores with advanced stats
-GET    /games/:gameId/boxscore/summary   # Four factors analysis
+### Built-in Infrastructure
+- ✅ Type-safe API and database layer
+- ✅ Authentication ready (Supabase Auth)
+- ✅ Real-time updates (Supabase Realtime)
+- ✅ Offline support (Dexie IndexedDB)
+- ✅ API client with auth headers
+- ✅ CORS middleware
+- ✅ Idempotency middleware
+- ✅ PWA support (service worker, manifest)
+- ✅ Toast notifications
+- ✅ Dark mode ready (via Tailwind CSS variables)
+- ✅ Responsive design
+- ✅ shadcn/ui component library
+
+## Customization
+
+### Add Database Models
+
+Edit `api/prisma/schema.prisma`:
+```prisma
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}
+```
+
+Then run:
+```bash
+cd api
+pnpm db:migrate
+pnpm db:generate
+```
+
+### Add API Routes
+
+Create a new route in `api/src/routes/`:
+```typescript
+import { Hono } from 'hono'
+import { prisma } from '@/lib/db'
+
+export const users = new Hono()
+
+users.get('/', async (c) => {
+  const users = await prisma.user.findMany()
+  return c.json(users)
+})
+```
+
+Then mount it in `api/src/index.ts`:
+```typescript
+import { users } from './routes/users'
+app.route('/users', users)
+```
+
+### Add Frontend Pages
+
+Create a new page in `web/src/app/`:
+```typescript
+// web/src/app/users/page.tsx
+export default function UsersPage() {
+  return <div>Users</div>
+}
 ```
 
 ## Deployment
 
-### Frontend (Vercel)
-
-```bash
-cd web
-npm run build
-# Deploy to Vercel
-```
-
-### Backend (Fly.io/Render)
-
+### Backend
+Deploy to Fly.io, Render, Railway, or any Node.js hosting:
 ```bash
 cd api
-npm run build
-# Deploy to your preferred platform
+pnpm build
+pnpm start
 ```
 
-## Testing
-
+### Frontend
+Deploy to Vercel, Netlify, or any static hosting:
 ```bash
-# API tests
-cd api
-npm test
-
-# E2E tests (Playwright)
 cd web
-npm run test:e2e
+pnpm build
 ```
 
-## Next Steps
+## Learn More
 
-After STEP 1 completion, proceed with:
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Hono Documentation](https://hono.dev/)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Tailwind CSS](https://tailwindcss.com/docs)
+- [shadcn/ui](https://ui.shadcn.com/)
 
-- STEP 2: Prisma schema and migrations
-- STEP 3: API routes implementation
-- STEP 4: Realtime broadcasting
-- STEP 5: Authentication setup
-- STEP 6: Live game screen
-- STEP 7: Game reports
-- STEP 8: Testing and monitoring
-- STEP 9: Polish and deployment
+## License
 
----
-
-## STEP 1 Complete ✅
-
-**File Tree:**
-
-```
-basketball-stats-app/
-├── web/                           # Next.js Frontend
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── globals.css
-│   │   │   ├── layout.tsx
-│   │   │   ├── page.tsx
-│   │   │   ├── games/page.tsx
-│   │   │   └── players/page.tsx
-│   │   ├── components/ui/
-│   │   │   ├── button.tsx
-│   │   │   └── card.tsx
-│   │   └── lib/
-│   │       ├── providers.tsx
-│   │       ├── store.ts
-│   │       ├── db.ts
-│   │       └── utils.ts
-│   ├── public/
-│   │   ├── manifest.json
-│   │   ├── icon-192x192.png
-│   │   └── icon-512x512.png
-│   ├── package.json
-│   ├── next.config.js
-│   ├── tailwind.config.js
-│   ├── tsconfig.json
-│   ├── components.json
-│   └── .env.example
-├── api/                           # Hono Backend
-│   ├── src/
-│   │   ├── routes/               # (Ready for STEP 3)
-│   │   ├── lib/
-│   │   │   ├── db.ts
-│   │   │   ├── supabase.ts
-│   │   │   └── validation.ts
-│   │   ├── middleware/
-│   │   │   ├── auth.ts
-│   │   │   └── idempotency.ts
-│   │   └── index.ts
-│   ├── prisma/                   # (Ready for STEP 2)
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
-└── README.md
-```
-
-Ready for **"continue"** to proceed to STEP 2! 🏀# basketball-stats-app
+MIT

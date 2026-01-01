@@ -16,11 +16,13 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     }
   }
 
-  // Otherwise use Supabase session
-  const { data: { session } } = await supabase.auth.getSession()
+  // Otherwise use Supabase session if configured
+  if (supabase) {
+    const { data: { session } } = await supabase.auth.getSession()
 
-  if (session?.access_token) {
-    headers['Authorization'] = `Bearer ${session.access_token}`
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
   }
 
   return headers

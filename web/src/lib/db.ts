@@ -7,6 +7,7 @@ export interface PendingEvent {
   tsClient: Date
   type: string
   playerId?: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   meta?: any
   ingestKey: string
   retryCount: number
@@ -15,6 +16,7 @@ export interface PendingEvent {
 
 export interface CachedGame {
   id: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
   lastUpdated: Date
 }
@@ -22,6 +24,7 @@ export interface CachedGame {
 export interface CachedPlayer {
   id: string
   teamId: string
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
   lastUpdated: Date
 }
@@ -33,7 +36,7 @@ class BasketballDB extends Dexie {
 
   constructor() {
     super('BasketballStatsDB')
-    
+
     this.version(1).stores({
       pendingEvents: '++id, gameId, tsClient, ingestKey',
       cachedGames: 'id, lastUpdated',
@@ -64,7 +67,7 @@ export const removePendingEvent = async (id: string) => {
 }
 
 export const updateRetryCount = async (id: string, count: number) => {
-  await db.pendingEvents.update(id, { 
+  await db.pendingEvents.update(id, {
     retryCount: count,
     lastAttempt: new Date()
   })

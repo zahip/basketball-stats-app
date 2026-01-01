@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
 
 // RBAC roles
 export type UserRole = "coach" | "scorer" | "viewer";
@@ -26,14 +26,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
-  // TEMPORARY: Force dev mode to true
-  const [isDevMode, setIsDevMode] = useState(true);
+  // TEMPORARY: Force dev mode to true if Supabase is not configured
+  const [isDevMode, setIsDevMode] = useState(!isSupabaseConfigured);
 
   // Development mode detection (client-side only to avoid hydration mismatch)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
-      const isDev = hostname === 'localhost' ||
+      const isDev = !isSupabaseConfigured ||
+                    hostname === 'localhost' ||
                     hostname === '127.0.0.1' ||
                     process.env.NODE_ENV === 'development';
       setIsDevMode(isDev);
@@ -68,6 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Skip Supabase auth if not configured
+    if (!isSupabaseConfigured || !supabase) {
+      setLoading(false);
+      return;
+    }
+
     // Get initial session
     const getInitialSession = async () => {
       const {
@@ -108,6 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string) => {
+    if (!isSupabaseConfigured || !supabase) {
+      return { error: new Error('Supabase not configured') };
+    }
+
     const redirectUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/auth/callback`
@@ -131,6 +142,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setRole(null);
       return { error: null };
+    }
+
+    if (!isSupabaseConfigured || !supabase) {
+      return { error: new Error('Supabase not configured') };
     }
 
     const { error } = await supabase.auth.signOut();
