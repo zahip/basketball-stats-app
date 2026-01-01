@@ -4,6 +4,8 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { prettyJSON } from "hono/pretty-json";
 import * as Sentry from "@sentry/node";
+import actions from "./routes/actions";
+import games from "./routes/games";
 
 // Initialize Sentry (optional)
 if (process.env.SENTRY_DSN) {
@@ -38,10 +40,14 @@ app.get("/health", (c) => {
 // Root endpoint
 app.get("/", (c) => {
   return c.json({
-    message: "Hello World API",
+    message: "Basketball Stats API",
     version: "1.0.0",
   });
 });
+
+// Mount routes
+app.route("/api/actions", actions);
+app.route("/api/games", games);
 
 const port = parseInt(process.env.PORT || "3002");
 
