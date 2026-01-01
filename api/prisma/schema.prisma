@@ -11,10 +11,74 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// Example model - replace with your own models
-model Example {
-  id        String   @id @default(cuid())
+// Enums
+enum GameStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+enum ActionType {
+  TWO_PT_MAKE
+  TWO_PT_MISS
+  THREE_PT_MAKE
+  THREE_PT_MISS
+  REB
+  AST
+  STL
+  BLK
+  FOUL
+  TO
+}
+
+enum Position {
+  PG
+  SG
+  SF
+  PF
+  C
+}
+
+// Models
+model Team {
+  id        String   @id @default(uuid())
   name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  logoUrl   String?
+  players   Player[]
+  homeGames Game[]   @relation("HomeTeam")
+  awayGames Game[]   @relation("AwayTeam")
+}
+
+model Player {
+  id           String   @id @default(uuid())
+  name         String
+  jerseyNumber Int
+  position     Position
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id])
+  actions      Action[]
+}
+
+model Game {
+  id         String     @id @default(uuid())
+  homeTeamId String
+  awayTeamId String
+  status     GameStatus @default(SCHEDULED)
+  scoreHome  Int        @default(0)
+  scoreAway  Int        @default(0)
+  createdAt  DateTime   @default(now())
+  homeTeam   Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  actions    Action[]
+}
+
+model Action {
+  id        String     @id @default(uuid())
+  gameId    String
+  playerId  String
+  type      ActionType
+  quarter   Int
+  createdAt DateTime   @default(now())
+  game      Game       @relation(fields: [gameId], references: [id])
+  player    Player     @relation(fields: [playerId], references: [id])
 }
