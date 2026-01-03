@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { useGame, useRecordAction } from '@/lib/hooks/use-game'
+import { useGame, useRecordAction, useGameRealtime } from '@/lib/hooks/use-game'
 import { GameHeader } from './game-header'
 import { PlayerSelector } from './player-selector'
 import { ActionPad } from './action-pad'
@@ -19,6 +19,9 @@ interface ScouterProps {
 export function Scouter({ gameId, className }: ScouterProps) {
   const { data, isLoading, error } = useGame(gameId)
   const recordAction = useRecordAction()
+
+  // Subscribe to realtime updates for this game
+  useGameRealtime(gameId)
 
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<string | null>(null)
   const [currentQuarter, setCurrentQuarter] = React.useState(1)

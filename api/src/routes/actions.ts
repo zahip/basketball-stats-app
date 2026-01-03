@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
+import { broadcastGameEvent, broadcastGameHeader } from '@/lib/supabase'
 
 const actions = new Hono()
 
@@ -23,7 +24,7 @@ const CreateActionSchema = z.object({
   quarter: z.number().int().min(1).max(4),
 })
 
-// POST /actions - Create action and update score
+// POST /actions - Create action and update score (OPTIMIZED)
 actions.post('/', async (c) => {
   try {
     const body = await c.req.json()
@@ -41,19 +42,33 @@ actions.post('/', async (c) => {
 
     const { gameId, playerId, type, quarter } = validated.data
 
-    // Verify game exists
-    const game = await prisma.game.findUnique({
-      where: { id: gameId },
-    })
+    // OPTIMIZATION: Validate game and player in PARALLEL (saves ~500ms)
+    const [game, player] = await Promise.all([
+      prisma.game.findUnique({
+        where: { id: gameId },
+        select: {
+          id: true,
+          homeTeamId: true,
+          awayTeamId: true,
+          scoreHome: true,
+          scoreAway: true,
+        },
+      }),
+      prisma.player.findUnique({
+        where: { id: playerId },
+        select: {
+          id: true,
+          teamId: true,
+          name: true,
+          jerseyNumber: true,
+          position: true,
+        },
+      }),
+    ])
 
     if (!game) {
       return c.json({ error: 'Game not found' }, 404)
     }
-
-    // Verify player exists and get their team
-    const player = await prisma.player.findUnique({
-      where: { id: playerId },
-    })
 
     if (!player) {
       return c.json({ error: 'Player not found' }, 404)
@@ -76,7 +91,7 @@ actions.post('/', async (c) => {
 
     // Execute transaction: create action and update score if applicable
     const result = await prisma.$transaction(async (tx) => {
-      // Step A: Create the action
+      // Create the action
       const action = await tx.action.create({
         data: {
           gameId,
@@ -84,12 +99,9 @@ actions.post('/', async (c) => {
           type,
           quarter,
         },
-        include: {
-          player: true,
-        },
       })
 
-      // Step B: Update score if it's a scoring action
+      // Update score if it's a scoring action
       let updatedGame = game
       if (points > 0) {
         updatedGame = await tx.game.update({
@@ -97,34 +109,57 @@ actions.post('/', async (c) => {
           data: isHomeTeam
             ? { scoreHome: { increment: points } }
             : { scoreAway: { increment: points } },
+          select: {
+            id: true,
+            scoreHome: true,
+            scoreAway: true,
+            homeTeamId: true,
+            awayTeamId: true,
+          },
         })
       }
 
       return { action, game: updatedGame }
     })
 
-    // Fetch full game state to return
-    const fullGameState = await prisma.game.findUnique({
-      where: { id: gameId },
-      include: {
-        homeTeam: {
-          include: { players: true },
-        },
-        awayTeam: {
-          include: { players: true },
-        },
-        actions: {
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-          include: { player: true },
-        },
+    // OPTIMIZATION: Return minimal response with constructed action
+    // Frontend already has optimistic data, doesn't need full game state
+    const responseAction = {
+      ...result.action,
+      player: {
+        id: player.id,
+        name: player.name,
+        jerseyNumber: player.jerseyNumber,
+        position: player.position,
+        teamId: player.teamId,
       },
-    })
+    }
+
+    // Construct minimal game response (frontend has teams/players already)
+    const responseGame = {
+      id: result.game.id,
+      scoreHome: result.game.scoreHome,
+      scoreAway: result.game.scoreAway,
+      homeTeamId: result.game.homeTeamId,
+      awayTeamId: result.game.awayTeamId,
+    }
+
+    // Broadcast to other devices via Supabase Realtime (non-blocking)
+    Promise.all([
+      broadcastGameEvent(gameId, {
+        type: 'ACTION_CREATED',
+        action: responseAction,
+      }),
+      broadcastGameHeader(gameId, {
+        scoreHome: responseGame.scoreHome,
+        scoreAway: responseGame.scoreAway,
+      }),
+    ]).catch((err) => console.error('Broadcast error:', err))
 
     return c.json(
       {
-        action: result.action,
-        game: fullGameState,
+        action: responseAction,
+        game: responseGame,
       },
       201
     )

@@ -57,6 +57,8 @@ model Player {
   teamId       String
   team         Team     @relation(fields: [teamId], references: [id])
   actions      Action[]
+
+  @@index([teamId])
 }
 
 model Game {
@@ -81,4 +83,7 @@ model Action {
   createdAt DateTime   @default(now())
   game      Game       @relation(fields: [gameId], references: [id])
   player    Player     @relation(fields: [playerId], references: [id])
+
+  @@index([gameId, createdAt(sort: Desc)])
+  @@index([playerId])
 }
