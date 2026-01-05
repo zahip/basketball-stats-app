@@ -68,6 +68,7 @@ model Game {
   status     GameStatus @default(SCHEDULED)
   scoreHome  Int        @default(0)
   scoreAway  Int        @default(0)
+  summary    String?    @db.Text
   createdAt  DateTime   @default(now())
   homeTeam   Team       @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam   Team       @relation("AwayTeam", fields: [awayTeamId], references: [id])

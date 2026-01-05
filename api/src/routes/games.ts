@@ -1,5 +1,8 @@
 import { Hono } from 'hono'
 import { prisma } from '@/lib/db'
+import { authMiddleware } from '@/middleware/auth'
+import { generateHebrewSummary } from '@/lib/generate-summary'
+import { broadcastGameEvent, removeChannel } from '@/lib/supabase'
 
 const games = new Hono()
 
@@ -42,6 +45,116 @@ games.get('/:id', async (c) => {
     return c.json(game)
   } catch (error) {
     console.error('Error fetching game:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /games/:id/finish - Finish game and generate Hebrew summary
+games.post('/:id/finish', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+
+    // STEP 1: Fetch game with all related data
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      include: {
+        homeTeam: true,
+        awayTeam: true,
+        actions: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            player: true,
+          },
+        },
+      },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    // STEP 2: Validate game is not already finished
+    if (game.status === 'FINISHED') {
+      return c.json(
+        {
+          error: 'Game is already finished. Summary cannot be regenerated.',
+          gameId: game.id,
+          status: game.status,
+        },
+        400
+      )
+    }
+
+    // STEP 3: Generate Hebrew summary (may take 2-5 seconds)
+    let summary: string
+    try {
+      summary = await generateHebrewSummary({
+        homeTeam: game.homeTeam,
+        awayTeam: game.awayTeam,
+        scoreHome: game.scoreHome,
+        scoreAway: game.scoreAway,
+        actions: game.actions,
+      })
+    } catch (summaryError) {
+      console.error('Failed to generate summary:', summaryError)
+      return c.json(
+        {
+          error: 'Failed to generate game summary',
+          details: summaryError instanceof Error ? summaryError.message : 'Unknown error',
+        },
+        500
+      )
+    }
+
+    // STEP 4: Update game in transaction (status + summary)
+    const updatedGame = await prisma.$transaction(async (tx) => {
+      return await tx.game.update({
+        where: { id: gameId },
+        data: {
+          status: 'FINISHED',
+          summary,
+        },
+        select: {
+          id: true,
+          status: true,
+          scoreHome: true,
+          scoreAway: true,
+          summary: true,
+          homeTeam: {
+            select: { id: true, name: true },
+          },
+          awayTeam: {
+            select: { id: true, name: true },
+          },
+        },
+      })
+    })
+
+    // STEP 5: Broadcast GAME_FINISHED event (non-blocking)
+    Promise.all([
+      broadcastGameEvent(gameId, {
+        type: 'GAME_FINISHED',
+        game: {
+          id: updatedGame.id,
+          status: updatedGame.status,
+          scoreHome: updatedGame.scoreHome,
+          scoreAway: updatedGame.scoreAway,
+        },
+      }),
+      // Clean up channel after game finishes
+      removeChannel(gameId),
+    ]).catch((err) => console.error('Broadcast error:', err))
+
+    // STEP 6: Return minimal response with summary
+    return c.json(
+      {
+        game: updatedGame,
+        message: 'Game finished successfully',
+      },
+      200
+    )
+  } catch (error) {
+    console.error('Error finishing game:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
