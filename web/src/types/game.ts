@@ -46,6 +46,7 @@ export interface Game {
   status: GameStatus
   scoreHome: number
   scoreAway: number
+  summary?: string | null
   createdAt: string
   homeTeam: Team
   awayTeam: Team
