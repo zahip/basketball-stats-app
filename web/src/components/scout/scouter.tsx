@@ -133,7 +133,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
         <h3 className="text-sm font-semibold text-muted-foreground mb-4">Record Action</h3>
         <ActionPad.Root
           onAction={handleAction}
-          disabled={!selectedPlayerId || recordAction.isPending}
+          disabled={!selectedPlayerId}
         >
           {/* First row - Scoring */}
           <ActionPad.Action type="TWO_PT_MAKE" label="+2" variant="success" />
@@ -155,7 +155,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
         <div className="mt-3">
           <ActionPad.Root
             onAction={handleAction}
-            disabled={!selectedPlayerId || recordAction.isPending}
+            disabled={!selectedPlayerId}
           >
             <ActionPad.Action
               type="THREE_PT_MISS"
