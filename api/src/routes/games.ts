@@ -1,10 +1,78 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { authMiddleware } from '@/middleware/auth'
 import { generateHebrewSummary } from '@/lib/generate-summary'
 import { broadcastGameEvent, removeChannel } from '@/lib/supabase'
 
+const CreateGameSchema = z.object({
+  homeTeamId: z.string().uuid(),
+  awayTeamId: z.string().uuid(),
+})
+
 const games = new Hono()
+
+// GET / - List all games with teams
+games.get('/', async (c) => {
+  try {
+    const games = await prisma.game.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        homeTeam: {
+          select: { id: true, name: true, logoUrl: true },
+        },
+        awayTeam: {
+          select: { id: true, name: true, logoUrl: true },
+        },
+      },
+    })
+    return c.json({ games })
+  } catch (error) {
+    console.error('Error fetching games:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST / - Create a new game
+games.post('/', authMiddleware, async (c) => {
+  try {
+    const body = await c.req.json()
+    const validated = CreateGameSchema.safeParse(body)
+
+    if (!validated.success) {
+      return c.json({ error: 'Validation failed', details: validated.error.errors }, 400)
+    }
+
+    const { homeTeamId, awayTeamId } = validated.data
+
+    if (homeTeamId === awayTeamId) {
+      return c.json({ error: 'Home and away teams must be different' }, 400)
+    }
+
+    // Validate both teams exist
+    const [homeTeam, awayTeam] = await Promise.all([
+      prisma.team.findUnique({ where: { id: homeTeamId } }),
+      prisma.team.findUnique({ where: { id: awayTeamId } }),
+    ])
+
+    if (!homeTeam || !awayTeam) {
+      return c.json({ error: 'One or both teams not found' }, 404)
+    }
+
+    const game = await prisma.game.create({
+      data: { homeTeamId, awayTeamId, status: 'SCHEDULED' },
+      include: {
+        homeTeam: { select: { id: true, name: true, logoUrl: true } },
+        awayTeam: { select: { id: true, name: true, logoUrl: true } },
+      },
+    })
+
+    return c.json({ game }, 201)
+  } catch (error) {
+    console.error('Error creating game:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
 
 // GET /games/:id - Fetch game details with teams, players, and recent actions
 games.get('/:id', async (c) => {

@@ -7,6 +7,7 @@ import { prettyJSON } from "hono/pretty-json";
 import * as Sentry from "@sentry/node";
 import actions from "./routes/actions";
 import games from "./routes/games";
+import teams from "./routes/teams";
 
 // Initialize Sentry (optional)
 if (process.env.SENTRY_DSN) {
@@ -49,6 +50,7 @@ app.get("/", (c) => {
 // Mount routes
 app.route("/api/actions", actions);
 app.route("/api/games", games);
+app.route("/api/teams", teams);
 
 const port = parseInt(process.env.PORT || "3002");
 

@@ -7,22 +7,19 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     'Content-Type': 'application/json',
   }
 
-  // In development mode, check for dev session first
-  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
-    const devUser = localStorage.getItem('dev_user')
-    if (devUser) {
-      headers['Authorization'] = 'Bearer dev-token'
-      return headers
-    }
-  }
-
-  // Otherwise use Supabase session if configured
+  // Try Supabase session first if configured
   if (supabase) {
     const { data: { session } } = await supabase.auth.getSession()
 
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`
+      return headers
     }
+  }
+
+  // Fall back to dev-token in development mode
+  if (process.env.NODE_ENV === 'development') {
+    headers['Authorization'] = 'Bearer dev-token'
   }
 
   return headers
