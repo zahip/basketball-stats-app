@@ -5,6 +5,7 @@ import { CinematicScoreboard } from './cinematic-scoreboard'
 import { PlayerSpotlight } from './player-spotlight'
 import { LivePlayByPlay } from './live-play-by-play'
 import { TeamStatsVisualization } from './team-stats-visualization'
+import { PlayerBoxScore } from './player-box-score'
 import { Loader2 } from 'lucide-react'
 
 interface LiveViewerProps {
@@ -74,6 +75,11 @@ export function LiveViewer({ gameId }: LiveViewerProps) {
 
           {/* Team Stats Visualization - Right column on desktop */}
           <TeamStatsVisualization game={game} />
+        </div>
+
+        {/* Player Box Score - Full width below grid */}
+        <div className="max-w-7xl mx-auto mt-6">
+          <PlayerBoxScore game={game} />
         </div>
       </div>
     </div>
