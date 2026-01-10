@@ -14,6 +14,8 @@ const CreateActionSchema = z.object({
     'TWO_PT_MISS',
     'THREE_PT_MAKE',
     'THREE_PT_MISS',
+    'FT_MAKE',
+    'FT_MISS',
     'REB',
     'AST',
     'STL',
@@ -87,7 +89,7 @@ actions.post('/', async (c) => {
 
     // Calculate points for scoring actions
     const points =
-      type === 'THREE_PT_MAKE' ? 3 : type === 'TWO_PT_MAKE' ? 2 : 0
+      type === 'THREE_PT_MAKE' ? 3 : type === 'TWO_PT_MAKE' ? 2 : type === 'FT_MAKE' ? 1 : 0
 
     // Execute transaction: create action and update score if applicable
     const result = await prisma.$transaction(async (tx) => {

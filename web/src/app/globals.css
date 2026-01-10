@@ -60,25 +60,35 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    /* Deep slate-950 dark theme - truly dark */
+    --background: 222 47% 5%;             /* Even darker #0c1220 */
+    --foreground: 210 40% 98%;            /* slate-50 */
+    --card: 222 47% 7%;                   /* slightly lighter than bg */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 7%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary: 262 83% 58%;               /* Keep purple brand */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 12%;             /* slate-900 */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --muted: 217 33% 12%;                 /* slate-900 */
+    --muted-foreground: 215 20% 55%;      /* slate-400 */
+    --accent: 217 33% 12%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --success: 160 84% 39%;               /* emerald-600 for scoring */
+    --success-foreground: 0 0% 100%;
+    --warning: 25 95% 53%;                /* Orange-600 */
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;             /* red-600 */
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 217 33% 15%;                /* subtle slate-800/50 */
+    --input: 217 33% 12%;
+    --ring: 187 96% 42%;                  /* cyan-500 for neon ring */
+    /* Basketball-specific colors for dark mode */
+    --home-team: 262 83% 58%;             /* Purple */
+    --away-team: 212 100% 48%;            /* Blue */
+    --court-light: 45 42% 20%;            /* Dark tan */
+    --court-dark: 35 30% 15%;             /* Darker tan */
   }
 }
 
@@ -173,4 +183,39 @@
 
 .text-truncate-line2 {
   @apply line-clamp-2;
+}
+
+/* Neon glow effects for Scout UI */
+.glow-cyan {
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.6),
+              0 0 20px rgba(34, 211, 238, 0.3);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5),
+              0 0 16px rgba(16, 185, 129, 0.25);
+}
+
+.glow-red {
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.glow-live {
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
+}
+
+/* Event ticker animation */
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-ticker {
+  animation: ticker-scroll 20s linear infinite;
+}
+
+/* Fade edges for ticker */
+.ticker-mask {
+  mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
 }

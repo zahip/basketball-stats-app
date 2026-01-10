@@ -2,57 +2,90 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { Card } from '@/components/ui/card'
+import { History } from 'lucide-react'
 import type { Game } from '@/types/game'
 
 interface GameHeaderProps {
   game: Game
+  currentQuarter: number
+  onQuarterChange: (quarter: number) => void
+  onHistoryClick: () => void
   className?: string
 }
 
-export function GameHeader({ game, className }: GameHeaderProps) {
+// Get short team name (first 3 letters or abbreviation)
+function getTeamAbbrev(name: string): string {
+  return name.slice(0, 3).toUpperCase()
+}
+
+export function GameHeader({ game, currentQuarter, onQuarterChange, onHistoryClick, className }: GameHeaderProps) {
   return (
-    <Card className={cn('p-6', className)}>
-      <div className="text-center space-y-4">
-        {/* Teams */}
-        <div className="flex items-center justify-center gap-3">
-          <span className="text-lg font-semibold">{game.homeTeam.name}</span>
-          <span className="text-muted-foreground">vs</span>
-          <span className="text-lg font-semibold">{game.awayTeam.name}</span>
-        </div>
-
-        {/* Score */}
-        <div className="flex items-center justify-center gap-6">
-          <div className="text-center">
-            <div className="text-5xl font-bold text-home-team tabular-nums">
-              {game.scoreHome}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Home</div>
-          </div>
-          <div className="text-3xl text-muted-foreground font-light">-</div>
-          <div className="text-center">
-            <div className="text-5xl font-bold text-away-team tabular-nums">
-              {game.scoreAway}
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">Away</div>
-          </div>
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center justify-center gap-2">
-          <div
-            className={cn(
-              'w-2 h-2 rounded-full',
-              game.status === 'LIVE' && 'bg-success animate-pulse',
-              game.status === 'SCHEDULED' && 'bg-warning',
-              game.status === 'FINISHED' && 'bg-muted-foreground'
-            )}
-          />
-          <span className="text-sm font-medium text-muted-foreground">
-            {game.status}
+    <div
+      className={cn(
+        'flex items-center h-[15vh] px-2 sm:px-4 bg-slate-950 border-b border-slate-800/50 gap-2',
+        className
+      )}
+    >
+      {/* Status indicator */}
+      <div className="flex items-center gap-2 shrink-0">
+        <div
+          className={cn(
+            'w-2.5 h-2.5 rounded-full transition-all',
+            game.status === 'LIVE' && 'bg-emerald-500 animate-pulse',
+            game.status === 'SCHEDULED' && 'bg-amber-500',
+            game.status === 'FINISHED' && 'bg-slate-500'
+          )}
+        />
+        {game.status === 'LIVE' && (
+          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 hidden sm:inline">
+            Live
           </span>
-        </div>
+        )}
       </div>
-    </Card>
+
+      {/* Score display - responsive sizing */}
+      <div className="flex items-center gap-1.5 sm:gap-3 flex-1 justify-center min-w-0">
+        <span className="text-xs sm:text-sm font-bold text-violet-400 uppercase tracking-wide">
+          {getTeamAbbrev(game.homeTeam.name)}
+        </span>
+        <span className="text-2xl sm:text-4xl font-bold tabular-nums text-slate-50 min-w-[2ch] text-center">
+          {game.scoreHome}
+        </span>
+        <span className="text-slate-600 text-sm sm:text-lg font-medium">–</span>
+        <span className="text-2xl sm:text-4xl font-bold tabular-nums text-slate-50 min-w-[2ch] text-center">
+          {game.scoreAway}
+        </span>
+        <span className="text-xs sm:text-sm font-bold text-sky-400 uppercase tracking-wide">
+          {getTeamAbbrev(game.awayTeam.name)}
+        </span>
+      </div>
+
+      {/* History button */}
+      <button
+        onClick={onHistoryClick}
+        className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors shrink-0"
+        aria-label="View history"
+      >
+        <History size={18} className="sm:w-5 sm:h-5" />
+      </button>
+
+      {/* Quarter selector - compact on mobile */}
+      <div className="flex gap-1 sm:gap-1.5 shrink-0">
+        {[1, 2, 3, 4].map((quarter) => (
+          <button
+            key={quarter}
+            onClick={() => onQuarterChange(quarter)}
+            className={cn(
+              'w-7 h-7 sm:w-8 sm:h-8 text-xs sm:text-sm font-bold rounded transition-all active:scale-95',
+              currentQuarter === quarter
+                ? 'bg-violet-500 text-white'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            )}
+          >
+            {quarter}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

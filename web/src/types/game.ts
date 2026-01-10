@@ -3,6 +3,8 @@ export type ActionType =
   | 'TWO_PT_MISS'
   | 'THREE_PT_MAKE'
   | 'THREE_PT_MISS'
+  | 'FT_MAKE'
+  | 'FT_MISS'
   | 'REB'
   | 'AST'
   | 'STL'

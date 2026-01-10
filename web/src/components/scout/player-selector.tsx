@@ -2,7 +2,6 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import { Card } from '@/components/ui/card'
 import type { Player, Team } from '@/types/game'
 
 interface PlayerSelectorContextValue {
@@ -40,7 +39,7 @@ function PlayerSelectorRoot({
 
   return (
     <PlayerSelectorContext.Provider value={value}>
-      <div className={cn('grid grid-cols-2 gap-4', className)}>
+      <div className={cn('flex flex-col gap-3 w-full', className)}>
         {children}
       </div>
     </PlayerSelectorContext.Provider>
@@ -55,22 +54,26 @@ interface PlayerSelectorTeamProps {
 
 function PlayerSelectorTeam({ team, isHome = false, className }: PlayerSelectorTeamProps) {
   return (
-    <Card className={cn('p-4', className)}>
-      <div className="flex items-center gap-2 mb-3">
-        <div
-          className={cn(
-            'w-3 h-3 rounded-full',
-            isHome ? 'bg-home-team' : 'bg-away-team'
-          )}
-        />
-        <h3 className="text-sm font-semibold">{team.name}</h3>
-      </div>
-      <div className="space-y-2">
+    <div
+      className={cn(
+        'flex items-center gap-1 px-1',
+        className
+      )}
+    >
+      {/* Team color indicator bar */}
+      <div
+        className={cn(
+          'w-1 h-10 rounded-full shrink-0',
+          isHome ? 'bg-violet-500' : 'bg-sky-500'
+        )}
+      />
+      {/* 5-column player grid */}
+      <div className="grid grid-cols-5 gap-1.5 flex-1">
         {team.players.map((player) => (
           <PlayerSelectorPlayer key={player.id} player={player} isHome={isHome} />
         ))}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -80,37 +83,46 @@ interface PlayerSelectorPlayerProps {
   className?: string
 }
 
+// Helper to get last name (first 3 chars)
+function getShortName(fullName: string): string {
+  const parts = fullName.trim().split(' ')
+  const lastName = parts[parts.length - 1]
+  return lastName.slice(0, 3).toUpperCase()
+}
+
 function PlayerSelectorPlayer({ player, isHome = false, className }: PlayerSelectorPlayerProps) {
   const { selectedPlayerId, onSelectPlayer } = usePlayerSelector()
   const isSelected = selectedPlayerId === player.id
+  const shortName = getShortName(player.name)
 
   return (
     <button
       onClick={() => onSelectPlayer(player.id)}
       className={cn(
-        'w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200',
-        'hover:bg-accent/50 active:scale-[0.98]',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        'min-h-[56px]',
+        'flex flex-col items-center justify-center transition-all duration-150',
+        'active:scale-95 touch-manipulation',
+        'focus-visible:outline-none',
+        'w-14 h-14 rounded-full',
+        // Selected state - subtle, no neon
         isSelected && [
-          'ring-2 ring-primary bg-primary/10',
-          isHome ? 'ring-home-team bg-home-team/10' : 'ring-away-team bg-away-team/10',
+          'ring-2 scale-105',
+          isHome
+            ? 'bg-violet-500 text-white ring-violet-400'
+            : 'bg-sky-500 text-white ring-sky-400',
         ],
+        // Unselected state
+        !isSelected && 'bg-slate-800 hover:bg-slate-700 text-slate-300',
         className
       )}
     >
-      <div
-        className={cn(
-          'flex items-center justify-center w-10 h-10 rounded-lg font-bold text-lg',
-          isHome ? 'bg-home-team text-white' : 'bg-away-team text-white'
-        )}
-      >
+      {/* Jersey number - large */}
+      <span className="text-lg font-bold tabular-nums leading-none">
         {player.jerseyNumber}
-      </div>
-      <div className="flex-1 text-left">
-        <p className="text-sm font-semibold">{player.name}</p>
-        <p className="text-xs text-muted-foreground">{player.position}</p>
-      </div>
+      </span>
+      {/* Short name */}
+      <span className="text-[9px] font-semibold uppercase tracking-tight leading-none mt-0.5">
+        {shortName}
+      </span>
     </button>
   )
 }
