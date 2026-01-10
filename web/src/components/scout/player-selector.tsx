@@ -2,11 +2,13 @@
 
 import * as React from 'react'
 import { cn } from '@/lib/utils'
-import type { Player, Team } from '@/types/game'
+import type { Player, Team, Action } from '@/types/game'
+import { calculatePlayerFouls } from '@/lib/stats/calculate-player-fouls'
 
 interface PlayerSelectorContextValue {
   selectedPlayerId: string | null
   onSelectPlayer: (playerId: string) => void
+  actions: Action[]
 }
 
 const PlayerSelectorContext = React.createContext<PlayerSelectorContextValue | undefined>(undefined)
@@ -22,6 +24,7 @@ function usePlayerSelector() {
 interface PlayerSelectorRootProps {
   selectedPlayerId: string | null
   onSelectPlayer: (playerId: string) => void
+  actions: Action[]
   children: React.ReactNode
   className?: string
 }
@@ -29,12 +32,13 @@ interface PlayerSelectorRootProps {
 function PlayerSelectorRoot({
   selectedPlayerId,
   onSelectPlayer,
+  actions,
   children,
   className,
 }: PlayerSelectorRootProps) {
   const value = React.useMemo(
-    () => ({ selectedPlayerId, onSelectPlayer }),
-    [selectedPlayerId, onSelectPlayer]
+    () => ({ selectedPlayerId, onSelectPlayer, actions }),
+    [selectedPlayerId, onSelectPlayer, actions]
   )
 
   return (
@@ -91,9 +95,10 @@ function getShortName(fullName: string): string {
 }
 
 function PlayerSelectorPlayer({ player, isHome = false, className }: PlayerSelectorPlayerProps) {
-  const { selectedPlayerId, onSelectPlayer } = usePlayerSelector()
+  const { selectedPlayerId, onSelectPlayer, actions } = usePlayerSelector()
   const isSelected = selectedPlayerId === player.id
   const shortName = getShortName(player.name)
+  const foulCount = calculatePlayerFouls(actions, player.id)
 
   return (
     <button
@@ -123,6 +128,24 @@ function PlayerSelectorPlayer({ player, isHome = false, className }: PlayerSelec
       <span className="text-[9px] font-semibold uppercase tracking-tight leading-none mt-0.5">
         {shortName}
       </span>
+      {/* Foul indicator dots */}
+      <div className="flex gap-0.5 mt-0.5">
+        {[0, 1, 2, 3, 4].map((index) => (
+          <div
+            key={index}
+            className={cn(
+              'w-1 h-1 rounded-full transition-colors',
+              index < foulCount
+                ? foulCount >= 5
+                  ? 'bg-red-500'
+                  : foulCount >= 3
+                  ? 'bg-orange-500'
+                  : 'bg-slate-400'
+                : 'bg-slate-700'
+            )}
+          />
+        ))}
+      </div>
     </button>
   )
 }

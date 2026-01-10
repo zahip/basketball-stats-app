@@ -103,6 +103,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
         <PlayerSelector.Root
           selectedPlayerId={selectedPlayerId}
           onSelectPlayer={setSelectedPlayerId}
+          actions={game.actions}
         >
           <PlayerSelector.Team team={game.homeTeam} isHome />
           <PlayerSelector.Team team={game.awayTeam} />
