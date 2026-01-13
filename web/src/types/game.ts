@@ -11,6 +11,8 @@ export type ActionType =
   | 'BLK'
   | 'FOUL'
   | 'TO'
+  | 'SUB_IN'
+  | 'SUB_OUT'
 
 export type GameStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED'
 
@@ -41,6 +43,17 @@ export interface Action {
   player: Player
 }
 
+export interface PlayerGameStatus {
+  id: string
+  gameId: string
+  playerId: string
+  isOnCourt: boolean
+  isStarter: boolean
+  createdAt: string
+  updatedAt: string
+  player: Player
+}
+
 export interface Game {
   id: string
   homeTeamId: string
@@ -53,4 +66,5 @@ export interface Game {
   homeTeam: Team
   awayTeam: Team
   actions: Action[]
+  playerStatuses: PlayerGameStatus[]
 }

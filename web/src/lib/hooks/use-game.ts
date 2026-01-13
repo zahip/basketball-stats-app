@@ -27,6 +27,35 @@ interface MutationContext {
   previousData: GameResponse | undefined
 }
 
+interface SubstitutionRequest {
+  gameId: string
+  playerOutId: string
+  playerInId: string
+  quarter: number
+}
+
+interface SubstitutionResponse {
+  success: boolean
+  substitution: {
+    playerOut: any
+    playerIn: any
+    actions: Action[]
+  }
+}
+
+interface SetStartersRequest {
+  gameId: string
+  homeStarters: string[]
+  awayStarters: string[]
+}
+
+interface SetStartersResponse {
+  success: boolean
+  message: string
+  homeStarters: string[]
+  awayStarters: string[]
+}
+
 export function useGame(gameId: string) {
   return useQuery<GameResponse>({
     queryKey: ['game', gameId],
@@ -153,6 +182,111 @@ export function useRecordAction() {
   })
 }
 
+export function useSubstitution() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  return useMutation<SubstitutionResponse, Error, SubstitutionRequest, MutationContext>({
+    mutationFn: async (data: SubstitutionRequest) => {
+      const response = await apiClient('/api/substitutions', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to execute substitution')
+      }
+
+      return response.json()
+    },
+    onMutate: async (variables) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['game', variables.gameId] })
+
+      // Snapshot the previous value
+      const previousData = queryClient.getQueryData<GameResponse>(['game', variables.gameId])
+
+      // Optimistically update player statuses
+      if (previousData) {
+        const updatedGame = {
+          ...previousData,
+          playerStatuses: previousData.playerStatuses?.map(status => {
+            if (status.playerId === variables.playerOutId) {
+              return { ...status, isOnCourt: false }
+            }
+            if (status.playerId === variables.playerInId) {
+              return { ...status, isOnCourt: true }
+            }
+            return status
+          }) || [],
+        }
+
+        queryClient.setQueryData<GameResponse>(['game', variables.gameId], updatedGame)
+      }
+
+      return { previousData }
+    },
+    onError: (error, variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['game', variables.gameId], context.previousData)
+      }
+
+      toast({
+        title: 'Substitution Failed',
+        description: error.message || 'Failed to execute substitution',
+        variant: 'destructive',
+      })
+    },
+    onSuccess: (data, variables) => {
+      // Invalidate to get fresh data with SUB_IN/SUB_OUT actions
+      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+
+      toast({
+        title: 'Substitution Successful',
+        description: 'Player substitution completed',
+      })
+    },
+  })
+}
+
+export function useSetStarters() {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  return useMutation<SetStartersResponse, Error, SetStartersRequest>({
+    mutationFn: async ({ gameId, homeStarters, awayStarters }: SetStartersRequest) => {
+      const response = await apiClient(`/api/games/${gameId}/starters`, {
+        method: 'POST',
+        body: JSON.stringify({ homeStarters, awayStarters }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to set starters')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+
+      toast({
+        title: 'Starters Set',
+        description: 'Starting lineup has been set successfully',
+      })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Failed to Set Starters',
+        description: error.message || 'Could not set starting lineup',
+        variant: 'destructive',
+      })
+    },
+  })
+}
+
 /**
  * Subscribe to game updates via Supabase Realtime for cross-device sync.
  */
@@ -194,6 +328,29 @@ export function useGameRealtime(gameId: string) {
           }
           queryClient.setQueryData<Game>(['game', gameId], updatedGame)
         }
+      })
+      .on('broadcast', { event: 'SUBSTITUTION' }, ({ payload }) => {
+        // Update player statuses for substitution
+        const existingData = queryClient.getQueryData<Game>(['game', gameId])
+        if (existingData && payload?.playerOut && payload?.playerIn) {
+          const updatedGame = {
+            ...existingData,
+            playerStatuses: existingData.playerStatuses?.map(status => {
+              if (status.playerId === payload.playerOut.id) {
+                return { ...status, isOnCourt: payload.playerOut.isOnCourt }
+              }
+              if (status.playerId === payload.playerIn.id) {
+                return { ...status, isOnCourt: payload.playerIn.isOnCourt }
+              }
+              return status
+            }) || [],
+          }
+          queryClient.setQueryData<Game>(['game', gameId], updatedGame)
+        }
+      })
+      .on('broadcast', { event: 'STARTERS_SET' }, () => {
+        // Refetch game data when starters are set
+        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .subscribe()
 

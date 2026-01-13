@@ -10,6 +10,11 @@ const CreateGameSchema = z.object({
   awayTeamId: z.string().uuid(),
 })
 
+const SetStartersSchema = z.object({
+  homeStarters: z.array(z.string().uuid()).length(5),
+  awayStarters: z.array(z.string().uuid()).length(5),
+})
+
 const games = new Hono()
 
 // GET / - List all games with teams
@@ -99,6 +104,11 @@ games.get('/:id', async (c) => {
         actions: {
           orderBy: { createdAt: 'desc' },
           take: 10,
+          include: {
+            player: true,
+          },
+        },
+        playerStatuses: {
           include: {
             player: true,
           },
@@ -223,6 +233,135 @@ games.post('/:id/finish', authMiddleware, async (c) => {
     )
   } catch (error) {
     console.error('Error finishing game:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /games/:id/starters - Set starting lineup for game
+games.post('/:id/starters', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+    const body = await c.req.json()
+    const validated = SetStartersSchema.safeParse(body)
+
+    if (!validated.success) {
+      return c.json(
+        {
+          error: 'Validation failed',
+          details: validated.error.errors,
+        },
+        400
+      )
+    }
+
+    const { homeStarters, awayStarters } = validated.data
+
+    // OPTIMIZATION: Fetch game and all players in parallel
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: {
+        id: true,
+        homeTeamId: true,
+        awayTeamId: true,
+        status: true,
+      },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    // Check if starters have already been set
+    const existingStatuses = await prisma.playerGameStatus.findMany({
+      where: { gameId },
+      select: { id: true },
+    })
+
+    if (existingStatuses.length > 0) {
+      return c.json(
+        { error: 'Starters have already been set for this game' },
+        400
+      )
+    }
+
+    // Fetch all players for both teams
+    const [allHomePlayers, allAwayPlayers] = await Promise.all([
+      prisma.player.findMany({
+        where: { teamId: game.homeTeamId },
+        select: { id: true },
+      }),
+      prisma.player.findMany({
+        where: { teamId: game.awayTeamId },
+        select: { id: true },
+      }),
+    ])
+
+    const homePlayerIds = allHomePlayers.map((p) => p.id)
+    const awayPlayerIds = allAwayPlayers.map((p) => p.id)
+
+    // Validate all selected starters belong to correct teams
+    const invalidHomeStarters = homeStarters.filter(
+      (id) => !homePlayerIds.includes(id)
+    )
+    const invalidAwayStarters = awayStarters.filter(
+      (id) => !awayPlayerIds.includes(id)
+    )
+
+    if (invalidHomeStarters.length > 0 || invalidAwayStarters.length > 0) {
+      return c.json(
+        {
+          error: 'Invalid starter selection',
+          details: {
+            invalidHomeStarters,
+            invalidAwayStarters,
+          },
+        },
+        400
+      )
+    }
+
+    // Execute transaction: create PlayerGameStatus for all players
+    await prisma.$transaction(async (tx) => {
+      const statusData = [
+        // Home team players
+        ...homePlayerIds.map((playerId) => ({
+          gameId,
+          playerId,
+          isOnCourt: homeStarters.includes(playerId),
+          isStarter: homeStarters.includes(playerId),
+        })),
+        // Away team players
+        ...awayPlayerIds.map((playerId) => ({
+          gameId,
+          playerId,
+          isOnCourt: awayStarters.includes(playerId),
+          isStarter: awayStarters.includes(playerId),
+        })),
+      ]
+
+      await tx.playerGameStatus.createMany({
+        data: statusData,
+      })
+    })
+
+    // Broadcast starters set event (non-blocking)
+    broadcastGameEvent(gameId, {
+      type: 'STARTERS_SET',
+      homeStarters,
+      awayStarters,
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json(
+      {
+        success: true,
+        message: 'Starters set successfully',
+        homeStarters,
+        awayStarters,
+      },
+      201
+    )
+  } catch (error) {
+    console.error('Error setting starters:', error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

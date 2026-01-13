@@ -87,6 +87,24 @@ actions.post('/', async (c) => {
       )
     }
 
+    // Check if player is on court (only if starters have been set)
+    const playerStatus = await prisma.playerGameStatus.findUnique({
+      where: {
+        gameId_playerId: {
+          gameId,
+          playerId,
+        },
+      },
+    })
+
+    // If playerStatus exists, validate player is on court
+    if (playerStatus && !playerStatus.isOnCourt) {
+      return c.json(
+        { error: 'Player is not on court. Cannot record action for bench players.' },
+        400
+      )
+    }
+
     // Calculate points for scoring actions
     const points =
       type === 'THREE_PT_MAKE' ? 3 : type === 'TWO_PT_MAKE' ? 2 : type === 'FT_MAKE' ? 1 : 0

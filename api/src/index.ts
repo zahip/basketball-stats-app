@@ -8,6 +8,7 @@ import * as Sentry from "@sentry/node";
 import actions from "./routes/actions";
 import games from "./routes/games";
 import teams from "./routes/teams";
+import substitutions from "./routes/substitutions";
 
 // Initialize Sentry (optional)
 if (process.env.SENTRY_DSN) {
@@ -51,6 +52,7 @@ app.get("/", (c) => {
 app.route("/api/actions", actions);
 app.route("/api/games", games);
 app.route("/api/teams", teams);
+app.route("/api/substitutions", substitutions);
 
 const port = parseInt(process.env.PORT || "3002");
 
