@@ -9,6 +9,8 @@ import { PlayerSelector } from './player-selector'
 import { ActionPad } from './action-pad'
 import { HistorySheet } from './event-log'
 import { StarterSelection } from './starter-selection'
+import { ScoutNavHeader } from './scout-nav-header'
+import { EndGameDialog } from './end-game-dialog'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 import type { ActionType } from '@/types/game'
@@ -33,6 +35,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
   const [swapMode, setSwapMode] = React.useState(false)
   const [swapPlayerOutId, setSwapPlayerOutId] = React.useState<string | null>(null)
   const [startersDialogOpen, setStartersDialogOpen] = React.useState(false)
+  const [endGameDialogOpen, setEndGameDialogOpen] = React.useState(false)
 
   // Show starters dialog if no player statuses exist
   React.useEffect(() => {
@@ -151,7 +154,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
   // Loading skeleton - dark themed
   if (isLoading || !game) {
     return (
-      <div className={cn('h-[100dvh] flex flex-col bg-slate-950 overflow-hidden', className)}>
+      <div className={cn('h-[100dvh] flex flex-col bg-slate-900/95 overflow-hidden', className)}>
         <div className="h-[15vh] flex items-center justify-center border-b border-slate-800/50">
           <div className="h-8 w-48 animate-pulse bg-slate-800 rounded" />
         </div>
@@ -168,7 +171,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
   // Error state
   if (error) {
     return (
-      <div className={cn('h-[100dvh] flex items-center justify-center p-4 bg-slate-950 overflow-hidden', className)}>
+      <div className={cn('h-[100dvh] flex items-center justify-center p-4 bg-slate-900/95 overflow-hidden', className)}>
         <div className="p-6 text-center max-w-sm rounded-lg bg-slate-900/80 border border-slate-800">
           <h2 className="text-lg font-semibold text-red-400 mb-2">Error Loading Game</h2>
           <p className="text-sm text-slate-400">{error.message}</p>
@@ -178,8 +181,11 @@ export function Scouter({ gameId, className }: ScouterProps) {
   }
 
   return (
-    <div className={cn('h-[100dvh] flex flex-col bg-slate-950 overflow-hidden', className)}>
-      {/* Header - 15vh */}
+    <div className={cn('h-[100dvh] flex flex-col bg-slate-900/95 overflow-hidden', className)}>
+      {/* Navigation Header - 8vh */}
+      <ScoutNavHeader onEndGame={() => setEndGameDialogOpen(true)} />
+
+      {/* Header - 12vh */}
       <GameHeader
         game={game}
         currentQuarter={currentQuarter}
@@ -187,21 +193,17 @@ export function Scouter({ gameId, className }: ScouterProps) {
         onHistoryClick={() => setHistoryOpen(true)}
       />
 
-      {/* Player Keypad - 25vh */}
-      <div className="h-[25vh] flex flex-col gap-2 items-center px-3">
+      {/* Player Keypad - 22vh */}
+      <div className="h-[22vh] flex flex-col gap-2 items-center px-3">
         {/* Swap Mode Toggle Button */}
         <div className="flex items-center gap-2 justify-center">
           <Button
-            variant={swapMode ? 'default' : 'outline'}
+            variant={swapMode ? 'secondary' : 'outline'}
             size="sm"
             onClick={() => {
               setSwapMode(!swapMode)
               setSwapPlayerOutId(null)
             }}
-            className={cn(
-              'transition-all',
-              swapMode && 'bg-amber-500 hover:bg-amber-600 text-white'
-            )}
           >
             <ArrowLeftRight className="w-4 h-4 mr-2" />
             {swapMode ? 'Cancel Swap' : 'Swap Players'}
@@ -230,8 +232,8 @@ export function Scouter({ gameId, className }: ScouterProps) {
         </div>
       </div>
 
-      {/* Action Command Center - 60vh */}
-      <div className="h-[60vh] px-3 pb-3 overflow-hidden">
+      {/* Action Command Center - 58vh */}
+      <div className="h-[58vh] px-3 pb-3 overflow-hidden">
         <ActionPad.Root
           onAction={handleAction}
           disabled={!selectedPlayerId}
@@ -273,6 +275,13 @@ export function Scouter({ gameId, className }: ScouterProps) {
         game={game}
         open={startersDialogOpen}
         onOpenChange={setStartersDialogOpen}
+      />
+
+      {/* End Game Confirmation Dialog */}
+      <EndGameDialog
+        gameId={gameId}
+        open={endGameDialogOpen}
+        onOpenChange={setEndGameDialogOpen}
       />
     </div>
   )
