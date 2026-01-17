@@ -39,6 +39,7 @@ export interface Action {
   playerId: string
   type: ActionType
   quarter: number
+  elapsedSeconds?: number | null // Game timer value when action occurred (0-600)
   locationX?: number | null // Shot location x-coordinate (0-100)
   locationY?: number | null // Shot location y-coordinate (0-100)
   createdAt: string
@@ -64,6 +65,9 @@ export interface Game {
   scoreHome: number
   scoreAway: number
   summary?: string | null
+  timerElapsedSeconds: number // Current timer value (0-600 seconds)
+  timerIsRunning: boolean // Is timer currently running
+  timerLastUpdatedAt: string | null // Last time timer was updated
   createdAt: string
   homeTeam: Team
   awayTeam: Team

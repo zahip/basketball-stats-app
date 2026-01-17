@@ -13,6 +13,7 @@ import { StarterSelection } from './starter-selection'
 import { ShotMapOverlay } from './shot-map-overlay'
 import { LineupSelection } from './lineup-selection'
 import { BenchDrawer } from './bench-drawer'
+import { GameTimer } from './game-timer'
 import { useToast } from '@/hooks/use-toast'
 import type { ActionType, Game } from '@/types/game'
 
@@ -48,6 +49,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
     outId: string
   } | null>(null)
   const [benchDrawerOpen, setBenchDrawerOpen] = React.useState(false)
+  const [currentTimerSeconds, setCurrentTimerSeconds] = React.useState(600)
 
   // Check if starters already set
   React.useEffect(() => {
@@ -55,6 +57,13 @@ export function Scouter({ gameId, className }: ScouterProps) {
       setShowLineupSelection(false)
     }
   }, [data])
+
+  // Sync timer state with game data
+  React.useEffect(() => {
+    if (data) {
+      setCurrentTimerSeconds(data.timerElapsedSeconds)
+    }
+  }, [data?.timerElapsedSeconds])
 
   const handleOpenBenchDrawer = React.useCallback((team: 'home' | 'away', teamId: string) => {
     setBenchDrawerOpen(true)
@@ -153,9 +162,10 @@ export function Scouter({ gameId, className }: ScouterProps) {
         playerId: selectedPlayerId,
         type,
         quarter: currentQuarter,
+        elapsedSeconds: currentTimerSeconds,
       })
     },
-    [gameId, selectedPlayerId, currentQuarter, recordAction, data, toast]
+    [gameId, selectedPlayerId, currentQuarter, currentTimerSeconds, recordAction, data, toast]
   )
 
   const handleShotLocation = React.useCallback(
@@ -169,12 +179,13 @@ export function Scouter({ gameId, className }: ScouterProps) {
         quarter: currentQuarter,
         locationX: x,
         locationY: y,
+        elapsedSeconds: currentTimerSeconds,
       })
 
       setShotMapOpen(false)
       setPendingShotType(null)
     },
-    [pendingShotType, selectedPlayerId, gameId, currentQuarter, recordAction]
+    [pendingShotType, selectedPlayerId, gameId, currentQuarter, currentTimerSeconds, recordAction]
   )
 
   const handleDeleteAction = React.useCallback(
@@ -240,21 +251,32 @@ export function Scouter({ gameId, className }: ScouterProps) {
           <ChevronLeft className="w-5 h-5 text-slate-700" />
         </button>
 
-        {/* Score - Center */}
-        <div className="flex items-center gap-4">
-          <div className="text-center">
-            <div className="text-[10px] text-violet-600 font-bold uppercase tracking-wide">
-              {game.homeTeam.name.slice(0, 3)}
+        {/* Center Section: Score + Timer */}
+        <div className="flex items-center gap-6">
+          {/* Score Display */}
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="text-[10px] text-violet-600 font-bold uppercase tracking-wide">
+                {game.homeTeam.name.slice(0, 3)}
+              </div>
+              <div className="text-xl font-bold text-slate-900 tabular-nums">{game.scoreHome}</div>
             </div>
-            <div className="text-xl font-bold text-slate-900 tabular-nums">{game.scoreHome}</div>
-          </div>
-          <div className="text-slate-400 text-sm">-</div>
-          <div className="text-center">
-            <div className="text-[10px] text-sky-600 font-bold uppercase tracking-wide">
-              {game.awayTeam.name.slice(0, 3)}
+            <div className="text-slate-400 text-sm">-</div>
+            <div className="text-center">
+              <div className="text-[10px] text-sky-600 font-bold uppercase tracking-wide">
+                {game.awayTeam.name.slice(0, 3)}
+              </div>
+              <div className="text-xl font-bold text-slate-900 tabular-nums">{game.scoreAway}</div>
             </div>
-            <div className="text-xl font-bold text-slate-900 tabular-nums">{game.scoreAway}</div>
           </div>
+
+          {/* Game Timer */}
+          <GameTimer
+            gameId={game.id}
+            initialSeconds={game.timerElapsedSeconds}
+            isRunning={game.timerIsRunning}
+            onTimerUpdate={setCurrentTimerSeconds}
+          />
         </div>
 
         {/* Period Selector - Right */}

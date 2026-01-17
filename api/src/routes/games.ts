@@ -366,4 +366,138 @@ games.post('/:id/starters', authMiddleware, async (c) => {
   }
 })
 
+// POST /games/:id/timer/start - Start the game timer
+games.post('/:id/timer/start', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { id: true, timerElapsedSeconds: true },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    const updatedGame = await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        timerIsRunning: true,
+        timerLastUpdatedAt: new Date(),
+      },
+      include: {
+        homeTeam: { select: { id: true, name: true } },
+        awayTeam: { select: { id: true, name: true } },
+      },
+    })
+
+    // Broadcast timer start event (non-blocking)
+    broadcastGameEvent(gameId, {
+      type: 'TIMER_START',
+      gameId,
+      elapsedSeconds: updatedGame.timerElapsedSeconds,
+      isRunning: true,
+      updatedAt: updatedGame.timerLastUpdatedAt,
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json({ success: true, game: updatedGame }, 200)
+  } catch (error) {
+    console.error('Error starting timer:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /games/:id/timer/pause - Pause the game timer
+games.post('/:id/timer/pause', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+    const body = await c.req.json()
+    const { elapsedSeconds } = body
+
+    if (typeof elapsedSeconds !== 'number' || elapsedSeconds < 0 || elapsedSeconds > 600) {
+      return c.json({ error: 'Invalid elapsedSeconds value (must be 0-600)' }, 400)
+    }
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { id: true },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    const updatedGame = await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        timerIsRunning: false,
+        timerElapsedSeconds: elapsedSeconds,
+        timerLastUpdatedAt: new Date(),
+      },
+      include: {
+        homeTeam: { select: { id: true, name: true } },
+        awayTeam: { select: { id: true, name: true } },
+      },
+    })
+
+    // Broadcast timer pause event (non-blocking)
+    broadcastGameEvent(gameId, {
+      type: 'TIMER_PAUSE',
+      gameId,
+      elapsedSeconds: updatedGame.timerElapsedSeconds,
+      isRunning: false,
+      updatedAt: updatedGame.timerLastUpdatedAt,
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json({ success: true, game: updatedGame }, 200)
+  } catch (error) {
+    console.error('Error pausing timer:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /games/:id/timer/reset - Reset the game timer to 10:00
+games.post('/:id/timer/reset', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { id: true },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    const updatedGame = await prisma.game.update({
+      where: { id: gameId },
+      data: {
+        timerElapsedSeconds: 600, // Reset to 10:00
+        timerIsRunning: false,
+        timerLastUpdatedAt: new Date(),
+      },
+      include: {
+        homeTeam: { select: { id: true, name: true } },
+        awayTeam: { select: { id: true, name: true } },
+      },
+    })
+
+    // Broadcast timer reset event (non-blocking)
+    broadcastGameEvent(gameId, {
+      type: 'TIMER_RESET',
+      gameId,
+      elapsedSeconds: 600,
+      isRunning: false,
+      updatedAt: updatedGame.timerLastUpdatedAt,
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json({ success: true, game: updatedGame }, 200)
+  } catch (error) {
+    console.error('Error resetting timer:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
 export default games

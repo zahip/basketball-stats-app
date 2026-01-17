@@ -354,6 +354,42 @@ export function useGameRealtime(gameId: string) {
         // Refetch game data when starters are set
         queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
+      .on('broadcast', { event: 'TIMER_START' }, ({ payload }) => {
+        // Update timer state when started
+        const existingData = queryClient.getQueryData<Game>(['game', gameId])
+        if (existingData) {
+          queryClient.setQueryData<Game>(['game', gameId], {
+            ...existingData,
+            timerElapsedSeconds: payload.elapsedSeconds,
+            timerIsRunning: true,
+            timerLastUpdatedAt: payload.updatedAt,
+          })
+        }
+      })
+      .on('broadcast', { event: 'TIMER_PAUSE' }, ({ payload }) => {
+        // Update timer state when paused
+        const existingData = queryClient.getQueryData<Game>(['game', gameId])
+        if (existingData) {
+          queryClient.setQueryData<Game>(['game', gameId], {
+            ...existingData,
+            timerElapsedSeconds: payload.elapsedSeconds,
+            timerIsRunning: false,
+            timerLastUpdatedAt: payload.updatedAt,
+          })
+        }
+      })
+      .on('broadcast', { event: 'TIMER_RESET' }, ({ payload }) => {
+        // Update timer state when reset
+        const existingData = queryClient.getQueryData<Game>(['game', gameId])
+        if (existingData) {
+          queryClient.setQueryData<Game>(['game', gameId], {
+            ...existingData,
+            timerElapsedSeconds: 600,
+            timerIsRunning: false,
+            timerLastUpdatedAt: payload.updatedAt,
+          })
+        }
+      })
       .subscribe()
 
     channelRef.current = channel
@@ -366,4 +402,90 @@ export function useGameRealtime(gameId: string) {
       }
     }
   }, [gameId, queryClient])
+}
+
+/**
+ * Hook for timer control mutations (start, pause, reset)
+ */
+export function useTimerControl(gameId: string) {
+  const queryClient = useQueryClient()
+  const { toast } = useToast()
+
+  const startTimer = useMutation({
+    mutationFn: async ({ gameId }: { gameId: string }) => {
+      const response = await apiClient(`/api/games/${gameId}/timer/start`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to start timer')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Timer Error',
+        description: error.message || 'Failed to start timer',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const pauseTimer = useMutation({
+    mutationFn: async ({ gameId, elapsedSeconds }: { gameId: string; elapsedSeconds: number }) => {
+      const response = await apiClient(`/api/games/${gameId}/timer/pause`, {
+        method: 'POST',
+        body: JSON.stringify({ elapsedSeconds }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to pause timer')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Timer Error',
+        description: error.message || 'Failed to pause timer',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  const resetTimer = useMutation({
+    mutationFn: async ({ gameId }: { gameId: string }) => {
+      const response = await apiClient(`/api/games/${gameId}/timer/reset`, {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to reset timer')
+      }
+
+      return response.json()
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    },
+    onError: (error) => {
+      toast({
+        title: 'Timer Error',
+        description: error.message || 'Failed to reset timer',
+        variant: 'destructive',
+      })
+    },
+  })
+
+  return { startTimer, pauseTimer, resetTimer }
 }
