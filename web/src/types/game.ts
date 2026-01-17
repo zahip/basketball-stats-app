@@ -52,6 +52,8 @@ export interface PlayerGameStatus {
   playerId: string
   isOnCourt: boolean
   isStarter: boolean
+  totalSecondsPlayed: number // Total playing time in seconds
+  lastSubInTime: number | null // Timer value when player last entered court (null if on bench)
   createdAt: string
   updatedAt: string
   player: Player

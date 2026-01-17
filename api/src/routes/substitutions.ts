@@ -39,6 +39,8 @@ substitutions.post('/', async (c) => {
           id: true,
           homeTeamId: true,
           awayTeamId: true,
+          timerElapsedSeconds: true, // NEW: Get timer state for minutes calculation
+          timerIsRunning: true, // NEW: Get timer state for minutes calculation
         },
       }),
       prisma.player.findUnique({
@@ -128,29 +130,100 @@ substitutions.post('/', async (c) => {
         throw new Error('Player to substitute in is already on court')
       }
 
-      // Swap isOnCourt status
-      await Promise.all([
-        tx.playerGameStatus.update({
-          where: {
-            gameId_playerId: {
-              gameId,
-              playerId: playerOutId,
+      // MINUTES LOGIC: Update based on timer state
+      if (game.timerIsRunning) {
+        // Timer running: Calculate minutes for player OUT, set entry time for player IN
+
+        // Player OUT: Calculate seconds played and add to total
+        if (statusOut.lastSubInTime !== null) {
+          const secondsPlayed = statusOut.lastSubInTime - game.timerElapsedSeconds
+
+          // Validate seconds played is non-negative
+          if (secondsPlayed < 0) {
+            console.error('Negative seconds played during substitution', {
+              playerId: statusOut.playerId,
+              lastSubInTime: statusOut.lastSubInTime,
+              currentElapsed: game.timerElapsedSeconds,
+            })
+            // Continue with swap but don't update minutes
+            await tx.playerGameStatus.update({
+              where: {
+                gameId_playerId: {
+                  gameId,
+                  playerId: playerOutId,
+                },
+              },
+              data: {
+                isOnCourt: false,
+                lastSubInTime: null,
+              },
+            })
+          } else {
+            await tx.playerGameStatus.update({
+              where: {
+                gameId_playerId: {
+                  gameId,
+                  playerId: playerOutId,
+                },
+              },
+              data: {
+                isOnCourt: false,
+                totalSecondsPlayed: statusOut.totalSecondsPlayed + secondsPlayed,
+                lastSubInTime: null,
+              },
+            })
+          }
+        } else {
+          // Edge case: lastSubInTime null but timer running (shouldn't happen)
+          await tx.playerGameStatus.update({
+            where: {
+              gameId_playerId: {
+                gameId,
+                playerId: playerOutId,
+              },
             },
-          },
-          data: { isOnCourt: false },
-        }),
-        tx.playerGameStatus.update({
+            data: { isOnCourt: false },
+          })
+        }
+
+        // Player IN: Set lastSubInTime to current timer value
+        await tx.playerGameStatus.update({
           where: {
             gameId_playerId: {
               gameId,
               playerId: playerInId,
             },
           },
-          data: { isOnCourt: true },
-        }),
-      ])
+          data: {
+            isOnCourt: true,
+            lastSubInTime: game.timerElapsedSeconds,
+          },
+        })
+      } else {
+        // Timer not running: Simple swap without minutes calculation
+        await Promise.all([
+          tx.playerGameStatus.update({
+            where: {
+              gameId_playerId: {
+                gameId,
+                playerId: playerOutId,
+              },
+            },
+            data: { isOnCourt: false },
+          }),
+          tx.playerGameStatus.update({
+            where: {
+              gameId_playerId: {
+                gameId,
+                playerId: playerInId,
+              },
+            },
+            data: { isOnCourt: true },
+          }),
+        ])
+      }
 
-      // Create SUB_OUT and SUB_IN actions
+      // Create SUB_OUT and SUB_IN actions with elapsedSeconds
       const [subOutAction, subInAction] = await Promise.all([
         tx.action.create({
           data: {
@@ -158,6 +231,7 @@ substitutions.post('/', async (c) => {
             playerId: playerOutId,
             type: 'SUB_OUT',
             quarter,
+            elapsedSeconds: game.timerElapsedSeconds, // NEW: Store timer value
           },
         }),
         tx.action.create({
@@ -166,6 +240,7 @@ substitutions.post('/', async (c) => {
             playerId: playerInId,
             type: 'SUB_IN',
             quarter,
+            elapsedSeconds: game.timerElapsedSeconds, // NEW: Store timer value
           },
         }),
       ])

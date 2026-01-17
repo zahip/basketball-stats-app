@@ -1,7 +1,7 @@
 'use client'
 
 import type { Game } from '@/types/game'
-import { calculatePlayerBoxScore } from '@/lib/stats/calculate-box-score'
+import { calculatePlayerBoxScore, formatMinutes } from '@/lib/stats/calculate-box-score'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -17,8 +17,8 @@ interface PlayerBoxScoreProps {
  * Highlights "hot" players with >10 points
  */
 export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
-  const homeBoxScore = calculatePlayerBoxScore(game.actions, game.homeTeamId)
-  const awayBoxScore = calculatePlayerBoxScore(game.actions, game.awayTeamId)
+  const homeBoxScore = calculatePlayerBoxScore(game.actions, game.homeTeamId, game.playerStatuses)
+  const awayBoxScore = calculatePlayerBoxScore(game.actions, game.awayTeamId, game.playerStatuses)
 
   return (
     <div
@@ -61,11 +61,14 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
             </div>
           ) : (
             <ScrollArea className="w-full">
-              <table className="w-full min-w-[400px]">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-700">
                     <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-left">
                       Player
+                    </th>
+                    <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-center">
+                      MIN
                     </th>
                     <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-center">
                       PTS
@@ -101,6 +104,9 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
                           </span>
                         </div>
                       </td>
+                      <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-mono text-slate-300">
+                        {formatMinutes(playerStats.minutes)}
+                      </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-semibold text-violet-400">
                         {playerStats.points}
                       </td>
@@ -129,11 +135,14 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
             </div>
           ) : (
             <ScrollArea className="w-full">
-              <table className="w-full min-w-[400px]">
+              <table className="w-full min-w-[500px]">
                 <thead>
                   <tr className="border-b border-slate-700">
                     <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-left">
                       Player
+                    </th>
+                    <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-center">
+                      MIN
                     </th>
                     <th className="text-xs uppercase text-slate-400 font-semibold px-3 py-2.5 text-center">
                       PTS
@@ -168,6 +177,9 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
                             #{playerStats.player.jerseyNumber}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-mono text-slate-300">
+                        {formatMinutes(playerStats.minutes)}
                       </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-semibold text-sky-400">
                         {playerStats.points}

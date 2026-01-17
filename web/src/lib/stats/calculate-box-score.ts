@@ -1,4 +1,4 @@
-import type { Action, Player } from '@/types/game'
+import type { Action, Player, PlayerGameStatus } from '@/types/game'
 
 export interface PlayerBoxScore {
   playerId: string
@@ -7,22 +7,33 @@ export interface PlayerBoxScore {
   rebounds: number
   assists: number
   fouls: number
+  minutes: number // Total seconds played (format as MM:SS for display)
 }
 
 /**
  * Calculate individual player statistics (box score) from actions array
  * @param actions - Array of game actions
  * @param teamId - ID of the team to calculate stats for
+ * @param playerStatuses - Array of player game statuses with minutes data
  * @returns Array of PlayerBoxScore objects sorted by points descending
  */
 export function calculatePlayerBoxScore(
   actions: Action[],
-  teamId: string
+  teamId: string,
+  playerStatuses: PlayerGameStatus[]
 ): PlayerBoxScore[] {
   // Filter actions for this team
   const teamActions = actions.filter(
     (action) => action.player.teamId === teamId
   )
+
+  // Create minutes map from player statuses
+  const minutesMap = new Map<string, number>()
+  playerStatuses
+    .filter(status => status.player.teamId === teamId)
+    .forEach(status => {
+      minutesMap.set(status.playerId, status.totalSecondsPlayed)
+    })
 
   // Group actions by playerId and accumulate stats
   const playerStatsMap = new Map<string, PlayerBoxScore>()
@@ -45,6 +56,7 @@ export function calculatePlayerBoxScore(
         rebounds: 0,
         assists: 0,
         fouls: 0,
+        minutes: minutesMap.get(playerId) || 0, // Get minutes from statuses
       })
     }
 
@@ -74,10 +86,38 @@ export function calculatePlayerBoxScore(
     }
   })
 
+  // Add players who have minutes but no actions yet
+  playerStatuses
+    .filter(status => status.player.teamId === teamId)
+    .forEach(status => {
+      if (!playerStatsMap.has(status.playerId) && status.totalSecondsPlayed > 0) {
+        playerStatsMap.set(status.playerId, {
+          playerId: status.playerId,
+          player: status.player,
+          points: 0,
+          rebounds: 0,
+          assists: 0,
+          fouls: 0,
+          minutes: status.totalSecondsPlayed,
+        })
+      }
+    })
+
   // Convert Map to array and sort by points descending
   const boxScore = Array.from(playerStatsMap.values()).sort(
     (a, b) => b.points - a.points
   )
 
   return boxScore
+}
+
+/**
+ * Format seconds to MM:SS
+ * @param seconds - Total seconds
+ * @returns Formatted time string (MM:SS)
+ */
+export function formatMinutes(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }

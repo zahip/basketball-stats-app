@@ -7,6 +7,7 @@ import { LivePlayByPlay } from './live-play-by-play'
 import { TeamStatsVisualization } from './team-stats-visualization'
 import { PlayerBoxScore } from './player-box-score'
 import { Loader2 } from 'lucide-react'
+import Link from 'next/link'
 
 interface LiveViewerProps {
   gameId: string
@@ -47,12 +48,12 @@ export function LiveViewer({ gameId }: LiveViewerProps) {
           <p className="text-sm text-slate-400 mb-4">
             Unable to load game with ID: {gameId}
           </p>
-          <a
+          <Link
             href="/"
             className="text-sm text-violet-400 hover:text-violet-300 underline"
           >
             Return to home
-          </a>
+          </Link>
         </div>
       </div>
     )

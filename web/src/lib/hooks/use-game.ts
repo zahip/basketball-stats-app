@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '@/lib/api-client'
 import { supabase } from '@/lib/supabase'
-import type { Game, Action, ActionType } from '@/types/game'
+import type { Game, Action, ActionType, Player } from '@/types/game'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
 
@@ -18,6 +18,7 @@ interface RecordActionRequest {
   quarter: number
   locationX?: number
   locationY?: number
+  elapsedSeconds?: number
 }
 
 interface RecordActionResponse {
@@ -39,8 +40,8 @@ interface SubstitutionRequest {
 interface SubstitutionResponse {
   success: boolean
   substitution: {
-    playerOut: any
-    playerIn: any
+    playerOut: Player
+    playerIn: Player
     actions: Action[]
   }
 }
@@ -355,7 +356,7 @@ export function useGameRealtime(gameId: string) {
         queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .on('broadcast', { event: 'TIMER_START' }, ({ payload }) => {
-        // Update timer state when started
+        // Update timer state when started and refetch to get updated playerStatuses
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
         if (existingData) {
           queryClient.setQueryData<Game>(['game', gameId], {
@@ -365,9 +366,11 @@ export function useGameRealtime(gameId: string) {
             timerLastUpdatedAt: payload.updatedAt,
           })
         }
+        // Invalidate to refetch playerStatuses with updated lastSubInTime
+        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .on('broadcast', { event: 'TIMER_PAUSE' }, ({ payload }) => {
-        // Update timer state when paused
+        // Update timer state when paused and refetch to get updated playerStatuses
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
         if (existingData) {
           queryClient.setQueryData<Game>(['game', gameId], {
@@ -377,9 +380,11 @@ export function useGameRealtime(gameId: string) {
             timerLastUpdatedAt: payload.updatedAt,
           })
         }
+        // Invalidate to refetch playerStatuses with updated totalSecondsPlayed
+        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .on('broadcast', { event: 'TIMER_RESET' }, ({ payload }) => {
-        // Update timer state when reset
+        // Update timer state when reset and refetch to get updated playerStatuses
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
         if (existingData) {
           queryClient.setQueryData<Game>(['game', gameId], {
@@ -389,6 +394,8 @@ export function useGameRealtime(gameId: string) {
             timerLastUpdatedAt: payload.updatedAt,
           })
         }
+        // Invalidate to refetch playerStatuses with cleared lastSubInTime
+        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .subscribe()
 
@@ -407,7 +414,7 @@ export function useGameRealtime(gameId: string) {
 /**
  * Hook for timer control mutations (start, pause, reset)
  */
-export function useTimerControl(gameId: string) {
+export function useTimerControl() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
 

@@ -23,8 +23,14 @@ export function GameTimer({
   const [elapsedSeconds, setElapsedSeconds] = React.useState(initialSeconds)
   const [isRunning, setIsRunning] = React.useState(initialIsRunning)
   const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
+  const elapsedSecondsRef = React.useRef(initialSeconds)
 
-  const { startTimer, pauseTimer, resetTimer } = useTimerControl(gameId)
+  // Keep ref in sync with state
+  React.useEffect(() => {
+    elapsedSecondsRef.current = elapsedSeconds
+  }, [elapsedSeconds])
+
+  const { startTimer, pauseTimer, resetTimer } = useTimerControl()
 
   // Countdown interval - runs every second
   React.useEffect(() => {
@@ -34,7 +40,8 @@ export function GameTimer({
           const next = prev - 1
           if (next <= 0) {
             // Auto-pause at 00:00
-            handlePause()
+            setIsRunning(false)
+            pauseTimer.mutate({ gameId, elapsedSeconds: 0 })
             return 0
           }
           return next
@@ -52,7 +59,7 @@ export function GameTimer({
         clearInterval(intervalRef.current)
       }
     }
-  }, [isRunning, elapsedSeconds])
+  }, [isRunning, elapsedSeconds, gameId, pauseTimer])
 
   // Notify parent when timer value changes
   React.useEffect(() => {
@@ -66,8 +73,18 @@ export function GameTimer({
 
   const handlePause = React.useCallback(() => {
     setIsRunning(false)
-    pauseTimer.mutate({ gameId, elapsedSeconds })
-  }, [gameId, elapsedSeconds, pauseTimer])
+    // Use ref to get the latest value, avoiding stale closure
+    const currentSeconds = elapsedSecondsRef.current
+
+    // Validate the value before sending
+    if (typeof currentSeconds !== 'number' || isNaN(currentSeconds)) {
+      console.error('Invalid elapsedSeconds value:', currentSeconds)
+      return
+    }
+
+    console.log('Pausing timer with seconds:', currentSeconds)
+    pauseTimer.mutate({ gameId, elapsedSeconds: currentSeconds })
+  }, [gameId, pauseTimer])
 
   const handleReset = React.useCallback(() => {
     setElapsedSeconds(600)
