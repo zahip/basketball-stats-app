@@ -22,7 +22,7 @@ export function GameHeader({ game, currentQuarter, onQuarterChange, onHistoryCli
   return (
     <div
       className={cn(
-        'flex items-center h-[12vh] px-2 sm:px-4 bg-slate-900/95 border-b border-slate-800/50 gap-2',
+        'flex items-center h-[9vh] px-2 sm:px-4 bg-slate-950 border-b border-slate-800/50 gap-2',
         className
       )}
     >

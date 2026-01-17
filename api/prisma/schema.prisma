@@ -87,6 +87,8 @@ model Action {
   playerId  String
   type      ActionType
   quarter   Int
+  locationX Int?       // Court x-coordinate (0-100) for shot actions
+  locationY Int?       // Court y-coordinate (0-100) for shot actions
   createdAt DateTime   @default(now())
   game      Game       @relation(fields: [gameId], references: [id])
   player    Player     @relation(fields: [playerId], references: [id])

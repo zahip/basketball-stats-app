@@ -2,10 +2,11 @@
 
 import * as React from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeftRight } from 'lucide-react'
+import { ArrowLeftRight, ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Player, Team, Action, PlayerGameStatus } from '@/types/game'
 import { calculatePlayerFouls } from '@/lib/stats/calculate-player-fouls'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface PlayerSelectorContextValue {
   selectedPlayerId: string | null
@@ -14,6 +15,7 @@ interface PlayerSelectorContextValue {
   playerStatuses: PlayerGameStatus[]
   swapMode: boolean
   swapPlayerOutId: string | null
+  pendingSwap: { playerOutId: string; playerInId: string } | null
 }
 
 const PlayerSelectorContext = React.createContext<PlayerSelectorContextValue | undefined>(undefined)
@@ -33,6 +35,7 @@ interface PlayerSelectorRootProps {
   playerStatuses: PlayerGameStatus[]
   swapMode: boolean
   swapPlayerOutId: string | null
+  pendingSwap: { playerOutId: string; playerInId: string } | null
   children: React.ReactNode
   className?: string
 }
@@ -44,12 +47,13 @@ function PlayerSelectorRoot({
   playerStatuses,
   swapMode,
   swapPlayerOutId,
+  pendingSwap,
   children,
   className,
 }: PlayerSelectorRootProps) {
   const value = React.useMemo(
-    () => ({ selectedPlayerId, onSelectPlayer, actions, playerStatuses, swapMode, swapPlayerOutId }),
-    [selectedPlayerId, onSelectPlayer, actions, playerStatuses, swapMode, swapPlayerOutId]
+    () => ({ selectedPlayerId, onSelectPlayer, actions, playerStatuses, swapMode, swapPlayerOutId, pendingSwap }),
+    [selectedPlayerId, onSelectPlayer, actions, playerStatuses, swapMode, swapPlayerOutId, pendingSwap]
   )
 
   return (
@@ -82,8 +86,9 @@ function PlayerSelectorTeam({ team, isHome = false, className }: PlayerSelectorT
   })
 
   return (
-    <div className={cn('flex flex-col gap-2 px-1', className)}>
-      <div className="flex items-center gap-1">
+    <div className={cn('flex flex-col gap-2 px-1 h-full', className)}>
+      {/* On-Court Players - Fixed height section */}
+      <div className="flex items-center gap-1 shrink-0">
         {/* Team color indicator bar */}
         <div
           className={cn(
@@ -92,7 +97,7 @@ function PlayerSelectorTeam({ team, isHome = false, className }: PlayerSelectorT
           )}
         />
 
-        {/* On-Court Players - 5 columns, large buttons */}
+        {/* On-Court Players Grid */}
         <div className="grid grid-cols-5 gap-1.5 flex-1">
           {onCourtPlayers.map((player) => (
             <PlayerSelectorPlayer key={player.id} player={player} isHome={isHome} isOnCourt={true} />
@@ -100,25 +105,30 @@ function PlayerSelectorTeam({ team, isHome = false, className }: PlayerSelectorT
         </div>
       </div>
 
-      {/* Bench Players - smaller buttons */}
+      {/* Bench Players - Scrollable horizontal section */}
       {benchPlayers.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="grid grid-cols-7 gap-1 pl-2"
-        >
-          {benchPlayers.map((player, index) => (
+        <div className="flex-1 min-h-0 pl-2">
+          <ScrollArea className="h-full">
             <motion.div
-              key={player.id}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05, duration: 0.2 }}
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex gap-1 pb-2"
             >
-              <PlayerSelectorPlayer player={player} isHome={isHome} isOnCourt={false} />
+              {benchPlayers.map((player, index) => (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05, duration: 0.2 }}
+                  className="shrink-0"
+                >
+                  <PlayerSelectorPlayer player={player} isHome={isHome} isOnCourt={false} />
+                </motion.div>
+              ))}
             </motion.div>
-          ))}
-        </motion.div>
+          </ScrollArea>
+        </div>
       )}
     </div>
   )
@@ -139,13 +149,17 @@ function getShortName(fullName: string): string {
 }
 
 function PlayerSelectorPlayer({ player, isHome = false, isOnCourt, className }: PlayerSelectorPlayerProps) {
-  const { selectedPlayerId, onSelectPlayer, actions, swapMode, swapPlayerOutId } = usePlayerSelector()
+  const { selectedPlayerId, onSelectPlayer, actions, swapMode, swapPlayerOutId, pendingSwap } = usePlayerSelector()
   const isSelected = selectedPlayerId === player.id
   const shortName = getShortName(player.name)
   const foulCount = calculatePlayerFouls(actions, player.id)
 
   // Determine if this player is the swap candidate
   const isSwapCandidate = swapMode && swapPlayerOutId === player.id
+
+  // Check if player is in pending swap
+  const isPendingOut = pendingSwap?.playerOutId === player.id
+  const isPendingIn = pendingSwap?.playerInId === player.id
 
   // Disable bench players in normal mode (action recording)
   const isDisabled = !swapMode && !isOnCourt
@@ -160,30 +174,35 @@ function PlayerSelectorPlayer({ player, isHome = false, isOnCourt, className }: 
         'active:scale-95 touch-manipulation',
         'focus-visible:outline-none',
         'rounded-full relative',
-        // Size based on court status
-        isOnCourt ? 'w-14 h-14' : 'w-10 h-10',
-        // Opacity for bench players
-        !isOnCourt && 'opacity-50',
-        // Disabled state
-        isDisabled && 'opacity-30 cursor-not-allowed',
-        // Swap candidate pulsing
-        isSwapCandidate && 'ring-4 ring-amber-500 animate-pulse',
-        // Selected state - subtle, no neon
-        isSelected && !isSwapCandidate && [
-          'ring-2 scale-105',
+        // Size based on court status - bench now 50% smaller
+        isOnCourt ? 'w-14 h-14' : 'w-7 h-7',
+        // Dashed border for bench players
+        !isOnCourt && 'border-2 border-dashed border-slate-600',
+        // Lower opacity for bench players - more distinct
+        !isOnCourt && 'opacity-40',
+        // Darker disabled state
+        isDisabled && 'opacity-20 cursor-not-allowed',
+        // Pending swap visual feedback
+        isPendingOut && 'ring-4 ring-red-500 opacity-60',
+        isPendingIn && 'ring-4 ring-green-500',
+        // Swap candidate pulsing (only if not pending)
+        !isPendingOut && !isPendingIn && isSwapCandidate && 'ring-4 ring-amber-500 animate-pulse',
+        // Selected state - thick purple/blue ring (brand colors)
+        isSelected && !isSwapCandidate && !isPendingOut && !isPendingIn && isOnCourt && [
+          'ring-4 scale-105',
           isHome
-            ? 'bg-violet-500 text-white ring-violet-400'
-            : 'bg-sky-500 text-white ring-sky-400',
+            ? 'bg-violet-500 text-white ring-violet-400 ring-offset-2 ring-offset-slate-950'
+            : 'bg-sky-500 text-white ring-sky-400 ring-offset-2 ring-offset-slate-950',
         ],
         // Unselected state
-        !isSelected && !isSwapCandidate && 'bg-slate-800 hover:bg-slate-700 text-slate-300',
+        !isSelected && !isSwapCandidate && !isPendingOut && !isPendingIn && 'bg-slate-800 hover:bg-slate-700 text-slate-300',
         className
       )}
     >
       {/* Jersey number */}
       <span className={cn(
         'font-bold tabular-nums leading-none',
-        isOnCourt ? 'text-lg' : 'text-sm'
+        isOnCourt ? 'text-lg' : 'text-[10px]'
       )}>
         {player.jerseyNumber}
       </span>
@@ -225,6 +244,18 @@ function PlayerSelectorPlayer({ player, isHome = false, isOnCourt, className }: 
         >
           <ArrowLeftRight className="w-4 h-4 text-amber-500" />
         </motion.div>
+      )}
+
+      {/* Pending swap icon overlays */}
+      {isPendingOut && (
+        <div className="absolute inset-0 flex items-center justify-center bg-red-500/30 rounded-full">
+          <ArrowDown className="w-4 h-4 text-red-400" />
+        </div>
+      )}
+      {isPendingIn && (
+        <div className="absolute inset-0 flex items-center justify-center bg-green-500/30 rounded-full">
+          <ArrowUp className="w-4 h-4 text-green-400" />
+        </div>
       )}
     </motion.button>
   )

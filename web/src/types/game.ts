@@ -39,6 +39,8 @@ export interface Action {
   playerId: string
   type: ActionType
   quarter: number
+  locationX?: number | null // Shot location x-coordinate (0-100)
+  locationY?: number | null // Shot location y-coordinate (0-100)
   createdAt: string
   player: Player
 }

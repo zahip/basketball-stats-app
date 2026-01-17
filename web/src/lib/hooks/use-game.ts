@@ -16,6 +16,8 @@ interface RecordActionRequest {
   playerId: string
   type: ActionType
   quarter: number
+  locationX?: number
+  locationY?: number
 }
 
 interface RecordActionResponse {

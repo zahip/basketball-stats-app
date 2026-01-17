@@ -60,7 +60,7 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
               <p className="text-sm text-slate-500">No stats recorded yet</p>
             </div>
           ) : (
-            <ScrollArea className="w-full" orientation="horizontal">
+            <ScrollArea className="w-full">
               <table className="w-full min-w-[400px]">
                 <thead>
                   <tr className="border-b border-slate-700">
@@ -128,7 +128,7 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
               <p className="text-sm text-slate-500">No stats recorded yet</p>
             </div>
           ) : (
-            <ScrollArea className="w-full" orientation="horizontal">
+            <ScrollArea className="w-full">
               <table className="w-full min-w-[400px]">
                 <thead>
                   <tr className="border-b border-slate-700">

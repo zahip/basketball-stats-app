@@ -57,7 +57,7 @@ function ActionPadRoot({ onAction, disabled = false, children, className }: Acti
 
   return (
     <ActionPadContext.Provider value={value}>
-      <div className={cn('grid grid-cols-4 gap-1.5', className)}>
+      <div className={cn('grid grid-cols-4 grid-rows-4 gap-1', className)}>
         {children}
       </div>
     </ActionPadContext.Provider>
@@ -90,26 +90,30 @@ function ActionButton({
       disabled={disabled}
       onClick={() => onAction(type)}
       className={cn(
-        'flex flex-col items-center justify-center gap-0.5 rounded-lg font-bold transition-all duration-100',
+        'flex flex-col items-center justify-center gap-0.5 rounded font-bold transition-all duration-100',
         'active:scale-95 touch-manipulation',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-inset',
-        // Size variants - refined, not oversized
-        size === 'md' && 'min-h-[48px] text-sm',
-        size === 'sm' && 'min-h-[44px] text-xs',
-        // Color variants - muted, professional
-        variant === 'score' && 'bg-emerald-600/80 hover:bg-emerald-600 text-white',
-        variant === 'miss' && 'bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700',
-        variant === 'stat' && 'bg-slate-800 hover:bg-slate-700 text-slate-300',
-        variant === 'foul' && 'bg-orange-600/80 hover:bg-orange-600 text-white',
-        variant === 'turnover' && 'bg-red-700/80 hover:bg-red-700 text-white',
-        variant === 'undo' && 'bg-slate-900 hover:bg-slate-800 text-slate-500 border border-slate-800',
+        // Compact sizing for 50vh constraint
+        size === 'md' && 'h-full text-xs',
+        size === 'sm' && 'h-full text-[10px]',
+        // Color variants with visual grouping - light theme semi-transparent
+        variant === 'score' &&
+          'bg-emerald-500/20 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/30',
+        variant === 'miss' && 'bg-rose-500/20 text-rose-700 border border-rose-500/30 hover:bg-rose-500/30',
+        variant === 'stat' &&
+          'bg-slate-500/20 text-slate-700 border border-slate-500/30 hover:bg-slate-500/30',
+        variant === 'foul' &&
+          'bg-orange-500/20 text-orange-700 border border-orange-500/30 hover:bg-orange-500/30',
+        variant === 'turnover' &&
+          'bg-red-500/20 text-red-700 border border-red-500/30 hover:bg-red-500/30',
+        variant === 'undo' && 'bg-slate-200 text-slate-600 hover:bg-slate-300',
         // Disabled state
         disabled && 'opacity-20 cursor-not-allowed',
         className
       )}
     >
       {icon && <span className="text-current">{icon}</span>}
-      <span>{label}</span>
+      <span className="leading-tight">{label}</span>
     </button>
   )
 }

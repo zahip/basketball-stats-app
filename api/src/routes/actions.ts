@@ -24,6 +24,8 @@ const CreateActionSchema = z.object({
     'TO',
   ]),
   quarter: z.number().int().min(1).max(4),
+  locationX: z.number().int().min(0).max(100).optional(), // Shot location x-coordinate
+  locationY: z.number().int().min(0).max(100).optional(), // Shot location y-coordinate
 })
 
 // POST /actions - Create action and update score (OPTIMIZED)
@@ -42,7 +44,7 @@ actions.post('/', async (c) => {
       )
     }
 
-    const { gameId, playerId, type, quarter } = validated.data
+    const { gameId, playerId, type, quarter, locationX, locationY } = validated.data
 
     // OPTIMIZATION: Validate game and player in PARALLEL (saves ~500ms)
     const [game, player] = await Promise.all([
@@ -118,6 +120,8 @@ actions.post('/', async (c) => {
           playerId,
           type,
           quarter,
+          locationX,
+          locationY,
         },
       })
 

@@ -84,6 +84,16 @@ const ACTION_CONFIG: Record<
     label: 'TO',
     colorClass: 'text-red-400',
   },
+  SUB_IN: {
+    icon: <Users size={16} />,
+    label: 'SUB IN',
+    colorClass: 'text-amber-400',
+  },
+  SUB_OUT: {
+    icon: <Users size={16} />,
+    label: 'SUB OUT',
+    colorClass: 'text-amber-400',
+  },
 }
 
 /**

@@ -25,6 +25,13 @@ async function main() {
           { name: "D'Angelo Russell", jerseyNumber: 1, position: Position.PG },
           { name: 'Austin Reaves', jerseyNumber: 15, position: Position.SG },
           { name: 'Jaxson Hayes', jerseyNumber: 11, position: Position.C },
+          { name: 'Rui Hachimura', jerseyNumber: 28, position: Position.SF },
+          { name: 'Taurean Prince', jerseyNumber: 12, position: Position.SF },
+          { name: 'Jarred Vanderbilt', jerseyNumber: 2, position: Position.PF },
+          { name: 'Cam Reddish', jerseyNumber: 5, position: Position.SF },
+          { name: 'Jalen Hood-Schifino', jerseyNumber: 0, position: Position.PG },
+          { name: 'Maxwell Lewis', jerseyNumber: 21, position: Position.SG },
+          { name: 'Christian Wood', jerseyNumber: 35, position: Position.C },
         ],
       },
     },
@@ -45,6 +52,13 @@ async function main() {
           { name: 'Derrick White', jerseyNumber: 9, position: Position.PG },
           { name: 'Kristaps Porzingis', jerseyNumber: 8, position: Position.C },
           { name: 'Al Horford', jerseyNumber: 42, position: Position.PF },
+          { name: 'Jrue Holiday', jerseyNumber: 4, position: Position.PG },
+          { name: 'Sam Hauser', jerseyNumber: 30, position: Position.SF },
+          { name: 'Payton Pritchard', jerseyNumber: 11, position: Position.PG },
+          { name: 'Luke Kornet', jerseyNumber: 40, position: Position.C },
+          { name: 'Oshae Brissett', jerseyNumber: 12, position: Position.SF },
+          { name: 'Lamar Stevens', jerseyNumber: 23, position: Position.PF },
+          { name: 'Svi Mykhailiuk', jerseyNumber: 17, position: Position.SG },
         ],
       },
     },
@@ -71,7 +85,7 @@ async function main() {
 
   console.log('\n✅ Seeding completed successfully!')
   console.log(`   - 2 teams created`)
-  console.log(`   - 10 players created (5 per team)`)
+  console.log(`   - 24 players created (12 per team)`)
   console.log(`   - 1 scheduled game created`)
 }
 

@@ -29,6 +29,8 @@ const ACTION_LABELS: Record<ActionType, { label: string; color: string }> = {
   BLK: { label: 'BLK', color: 'text-cyan-400' },
   FOUL: { label: 'FOUL', color: 'text-orange-400' },
   TO: { label: 'TO', color: 'text-red-400' },
+  SUB_IN: { label: 'SUB IN', color: 'text-amber-400' },
+  SUB_OUT: { label: 'SUB OUT', color: 'text-amber-400' },
 }
 
 // History Sheet component - slides from bottom (mobile) or right (desktop)
