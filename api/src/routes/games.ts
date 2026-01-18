@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db'
 import { authMiddleware } from '@/middleware/auth'
 import { generateHebrewSummary } from '@/lib/generate-summary'
 import { broadcastGameEvent, removeChannel } from '@/lib/supabase'
+// NOTE: recalculatePlayerMinutes available for future use
+// Currently using incremental minutes calculation during pause/sub events
+// import { recalculatePlayerMinutes } from '@/lib/calculate-minutes'
 
 const CreateGameSchema = z.object({
   homeTeamId: z.string().uuid(),
@@ -112,6 +115,10 @@ games.get('/:id', async (c) => {
           include: {
             player: true,
           },
+        },
+        clockSessions: {
+          orderBy: { systemTimestamp: 'asc' },
+          take: 100, // Last 100 sessions (covers ~50 periods/resets)
         },
       },
     })
@@ -373,56 +380,74 @@ games.post('/:id/timer/start', authMiddleware, async (c) => {
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
-      select: { id: true, timerElapsedSeconds: true },
+      select: { id: true },
     })
 
     if (!game) {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Update timer + set lastSubInTime for on-court players
-    const updatedGame = await prisma.$transaction(async (tx) => {
-      // Update game timer
-      const game = await tx.game.update({
-        where: { id: gameId },
+    // TRANSACTION: Create RUNNING clock session + set lastSubInTime for on-court players
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Get latest clock session (validate not already running)
+      const latestSession = await tx.clockSession.findFirst({
+        where: { gameId },
+        orderBy: { systemTimestamp: 'desc' },
+        select: { status: true, secondsRemaining: true },
+      })
+
+      if (latestSession?.status === 'RUNNING') {
+        throw new Error('Clock is already running')
+      }
+
+      const currentSeconds = latestSession?.secondsRemaining ?? 600
+
+      // 2. Create RUNNING session
+      const session = await tx.clockSession.create({
         data: {
-          timerIsRunning: true,
-          timerLastUpdatedAt: new Date(),
+          gameId,
+          status: 'RUNNING',
+          secondsRemaining: currentSeconds,
+          systemTimestamp: new Date(),
         },
+      })
+
+      // 3. Set lastSubInTime for on-court players (who don't have it set)
+      await tx.playerGameStatus.updateMany({
+        where: {
+          gameId,
+          isOnCourt: true,
+          lastSubInTime: null,
+        },
+        data: {
+          lastSubInTime: currentSeconds,
+        },
+      })
+
+      // 4. Get game with teams for response
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
         include: {
           homeTeam: { select: { id: true, name: true } },
           awayTeam: { select: { id: true, name: true } },
         },
       })
 
-      // Set lastSubInTime for all on-court players (who don't have it set)
-      await tx.playerGameStatus.updateMany({
-        where: {
-          gameId,
-          isOnCourt: true,
-          lastSubInTime: null, // Only update if not already set
-        },
-        data: {
-          lastSubInTime: game.timerElapsedSeconds,
-        },
-      })
-
-      return game
+      return { session, game }
     })
 
     // Broadcast timer start event (non-blocking)
     broadcastGameEvent(gameId, {
       type: 'TIMER_START',
       gameId,
-      elapsedSeconds: updatedGame.timerElapsedSeconds,
-      isRunning: true,
-      updatedAt: updatedGame.timerLastUpdatedAt,
+      session: result.session,
     }).catch((err) => console.error('Broadcast error:', err))
 
-    return c.json({ success: true, game: updatedGame }, 200)
+    return c.json({ success: true, game: result.game, session: result.session }, 200)
   } catch (error) {
     console.error('Error starting timer:', error)
-    return c.json({ error: 'Internal server error' }, 500)
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error'
+    return c.json({ error: errorMessage }, 500)
   }
 })
 
@@ -446,23 +471,40 @@ games.post('/:id/timer/pause', authMiddleware, async (c) => {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Update timer + calculate minutes for on-court players
-    const updatedGame = await prisma.$transaction(async (tx) => {
-      // Update game timer
-      const game = await tx.game.update({
-        where: { id: gameId },
+    // TRANSACTION: Create PAUSED session + calculate minutes for on-court players
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Get latest clock session (must be RUNNING)
+      const latestSession = await tx.clockSession.findFirst({
+        where: { gameId },
+        orderBy: { systemTimestamp: 'desc' },
+        select: { status: true, secondsRemaining: true, systemTimestamp: true },
+      })
+
+      if (!latestSession || latestSession.status !== 'RUNNING') {
+        throw new Error('Clock is not running')
+      }
+
+      // 2. Calculate server-side current seconds
+      const elapsedMs = Date.now() - latestSession.systemTimestamp.getTime()
+      const currentSeconds = Math.max(0, latestSession.secondsRemaining - Math.floor(elapsedMs / 1000))
+
+      // Optional: Log if client-server drift is significant
+      if (Math.abs(currentSeconds - elapsedSeconds) > 2) {
+        console.warn(`Clock drift detected: server=${currentSeconds}, client=${elapsedSeconds}`)
+      }
+
+      // 3. Create PAUSED session (use server calculation)
+      const session = await tx.clockSession.create({
         data: {
-          timerIsRunning: false,
-          timerElapsedSeconds: elapsedSeconds,
-          timerLastUpdatedAt: new Date(),
-        },
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
+          gameId,
+          status: 'PAUSED',
+          secondsRemaining: currentSeconds,
+          systemTimestamp: new Date(),
         },
       })
 
-      // Fetch on-court players with lastSubInTime set
+      // 4. Calculate minutes for on-court players using old logic
+      // (Full recalculatePlayerMinutes not implemented yet - using incremental approach)
       const onCourtPlayers = await tx.playerGameStatus.findMany({
         where: {
           gameId,
@@ -477,16 +519,15 @@ games.post('/:id/timer/pause', authMiddleware, async (c) => {
         },
       })
 
-      // Update each player's total seconds played
       for (const player of onCourtPlayers) {
-        const secondsPlayed = player.lastSubInTime! - elapsedSeconds
+        const secondsPlayed = player.lastSubInTime! - currentSeconds
 
-        // Validate seconds played is non-negative
         if (secondsPlayed < 0) {
-          console.error('Negative seconds played', {
+          console.error('NEGATIVE_SEGMENT_DETECTED', {
             playerId: player.playerId,
             lastSubInTime: player.lastSubInTime,
-            currentElapsed: elapsedSeconds,
+            currentSeconds,
+            secondsPlayed,
           })
           continue // Skip this update
         }
@@ -495,30 +536,37 @@ games.post('/:id/timer/pause', authMiddleware, async (c) => {
           where: { id: player.id },
           data: {
             totalSecondsPlayed: player.totalSecondsPlayed + secondsPlayed,
-            lastSubInTime: null, // Clear since timer stopped
+            lastSubInTime: null,
           },
         })
       }
 
-      return game
+      // 5. Get game with teams for response
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
+        include: {
+          homeTeam: { select: { id: true, name: true } },
+          awayTeam: { select: { id: true, name: true } },
+        },
+      })
+
+      return { session, game }
     })
 
     // Broadcast timer pause event (non-blocking)
     broadcastGameEvent(gameId, {
       type: 'TIMER_PAUSE',
       gameId,
-      elapsedSeconds: updatedGame.timerElapsedSeconds,
-      isRunning: false,
-      updatedAt: updatedGame.timerLastUpdatedAt,
+      session: result.session,
     }).catch((err) => console.error('Broadcast error:', err))
 
-    return c.json({ success: true, game: updatedGame }, 200)
+    return c.json({ success: true, game: result.game, session: result.session }, 200)
   } catch (error) {
     console.error('Error pausing timer:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return c.json({
       error: 'Failed to pause timer',
-      details: errorMessage
+      details: errorMessage,
     }, 500)
   }
 })
@@ -530,17 +578,27 @@ games.post('/:id/timer/reset', authMiddleware, async (c) => {
 
     const game = await prisma.game.findUnique({
       where: { id: gameId },
-      select: { id: true, timerIsRunning: true, timerElapsedSeconds: true },
+      select: { id: true },
     })
 
     if (!game) {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Update minutes if running + reset timer
-    const updatedGame = await prisma.$transaction(async (tx) => {
-      // If timer was running, calculate minutes for on-court players
-      if (game.timerIsRunning) {
+    // TRANSACTION: Create PAUSED session at 600 + calculate minutes if running
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Get latest clock session
+      const latestSession = await tx.clockSession.findFirst({
+        where: { gameId },
+        orderBy: { systemTimestamp: 'desc' },
+        select: { status: true, secondsRemaining: true, systemTimestamp: true },
+      })
+
+      // 2. If timer was running, calculate minutes for on-court players
+      if (latestSession?.status === 'RUNNING') {
+        const elapsedMs = Date.now() - latestSession.systemTimestamp.getTime()
+        const currentSeconds = Math.max(0, latestSession.secondsRemaining - Math.floor(elapsedMs / 1000))
+
         const onCourtPlayers = await tx.playerGameStatus.findMany({
           where: {
             gameId,
@@ -556,14 +614,14 @@ games.post('/:id/timer/reset', authMiddleware, async (c) => {
         })
 
         for (const player of onCourtPlayers) {
-          const secondsPlayed = player.lastSubInTime! - game.timerElapsedSeconds
+          const secondsPlayed = player.lastSubInTime! - currentSeconds
 
-          // Validate seconds played is non-negative
           if (secondsPlayed < 0) {
-            console.error('Negative seconds played on reset', {
+            console.error('NEGATIVE_SEGMENT_DETECTED on reset', {
               playerId: player.playerId,
               lastSubInTime: player.lastSubInTime,
-              currentElapsed: game.timerElapsedSeconds,
+              currentSeconds,
+              secondsPlayed,
             })
             continue
           }
@@ -584,36 +642,40 @@ games.post('/:id/timer/reset', authMiddleware, async (c) => {
         })
       }
 
-      // Reset timer to 10:00
-      const game = await tx.game.update({
-        where: { id: gameId },
+      // 3. Create PAUSED session at 10:00
+      const session = await tx.clockSession.create({
         data: {
-          timerElapsedSeconds: 600,
-          timerIsRunning: false,
-          timerLastUpdatedAt: new Date(),
+          gameId,
+          status: 'PAUSED',
+          secondsRemaining: 600,
+          systemTimestamp: new Date(),
         },
+      })
+
+      // 4. Get game with teams for response
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
         include: {
           homeTeam: { select: { id: true, name: true } },
           awayTeam: { select: { id: true, name: true } },
         },
       })
 
-      return game
+      return { session, game }
     })
 
     // Broadcast timer reset event (non-blocking)
     broadcastGameEvent(gameId, {
       type: 'TIMER_RESET',
       gameId,
-      elapsedSeconds: 600,
-      isRunning: false,
-      updatedAt: updatedGame.timerLastUpdatedAt,
+      session: result.session,
     }).catch((err) => console.error('Broadcast error:', err))
 
-    return c.json({ success: true, game: updatedGame }, 200)
+    return c.json({ success: true, game: result.game, session: result.session }, 200)
   } catch (error) {
     console.error('Error resetting timer:', error)
-    return c.json({ error: 'Internal server error' }, 500)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return c.json({ error: errorMessage }, 500)
   }
 })
 

@@ -356,46 +356,49 @@ export function useGameRealtime(gameId: string) {
         queryClient.invalidateQueries({ queryKey: ['game', gameId] })
       })
       .on('broadcast', { event: 'TIMER_START' }, ({ payload }) => {
-        // Update timer state when started and refetch to get updated playerStatuses
+        // Append new clock session when timer started
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
-        if (existingData) {
+        if (existingData && payload?.session) {
           queryClient.setQueryData<Game>(['game', gameId], {
             ...existingData,
-            timerElapsedSeconds: payload.elapsedSeconds,
-            timerIsRunning: true,
-            timerLastUpdatedAt: payload.updatedAt,
+            clockSessions: [...existingData.clockSessions, payload.session],
           })
         }
-        // Invalidate to refetch playerStatuses with updated lastSubInTime
-        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
+        // Refetch in background to get updated playerStatuses (don't block UI)
+        queryClient.refetchQueries({
+          queryKey: ['game', gameId],
+          type: 'active'
+        })
       })
       .on('broadcast', { event: 'TIMER_PAUSE' }, ({ payload }) => {
-        // Update timer state when paused and refetch to get updated playerStatuses
+        // Append new clock session when timer paused
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
-        if (existingData) {
+        if (existingData && payload?.session) {
           queryClient.setQueryData<Game>(['game', gameId], {
             ...existingData,
-            timerElapsedSeconds: payload.elapsedSeconds,
-            timerIsRunning: false,
-            timerLastUpdatedAt: payload.updatedAt,
+            clockSessions: [...existingData.clockSessions, payload.session],
           })
         }
-        // Invalidate to refetch playerStatuses with updated totalSecondsPlayed
-        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
+        // Refetch in background to get updated totalSecondsPlayed (don't block UI)
+        queryClient.refetchQueries({
+          queryKey: ['game', gameId],
+          type: 'active'
+        })
       })
       .on('broadcast', { event: 'TIMER_RESET' }, ({ payload }) => {
-        // Update timer state when reset and refetch to get updated playerStatuses
+        // Append new clock session when timer reset
         const existingData = queryClient.getQueryData<Game>(['game', gameId])
-        if (existingData) {
+        if (existingData && payload?.session) {
           queryClient.setQueryData<Game>(['game', gameId], {
             ...existingData,
-            timerElapsedSeconds: 600,
-            timerIsRunning: false,
-            timerLastUpdatedAt: payload.updatedAt,
+            clockSessions: [...existingData.clockSessions, payload.session],
           })
         }
-        // Invalidate to refetch playerStatuses with cleared lastSubInTime
-        queryClient.invalidateQueries({ queryKey: ['game', gameId] })
+        // Refetch to get cleared lastSubInTime values
+        queryClient.refetchQueries({
+          queryKey: ['game', gameId],
+          type: 'active'
+        })
       })
       .subscribe()
 
@@ -431,8 +434,15 @@ export function useTimerControl() {
 
       return response.json()
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    onSuccess: (data, variables) => {
+      // Update cache immediately with server response
+      const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
+      if (existingData && data.session) {
+        queryClient.setQueryData<Game>(['game', variables.gameId], {
+          ...existingData,
+          clockSessions: [...existingData.clockSessions, data.session],
+        })
+      }
     },
     onError: (error) => {
       toast({
@@ -457,8 +467,15 @@ export function useTimerControl() {
 
       return response.json()
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    onSuccess: (data, variables) => {
+      // Update cache immediately with server response
+      const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
+      if (existingData && data.session) {
+        queryClient.setQueryData<Game>(['game', variables.gameId], {
+          ...existingData,
+          clockSessions: [...existingData.clockSessions, data.session],
+        })
+      }
     },
     onError: (error) => {
       toast({
@@ -482,8 +499,15 @@ export function useTimerControl() {
 
       return response.json()
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
+    onSuccess: (data, variables) => {
+      // Update cache immediately with server response
+      const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
+      if (existingData && data.session) {
+        queryClient.setQueryData<Game>(['game', variables.gameId], {
+          ...existingData,
+          clockSessions: [...existingData.clockSessions, data.session],
+        })
+      }
     },
     onError: (error) => {
       toast({

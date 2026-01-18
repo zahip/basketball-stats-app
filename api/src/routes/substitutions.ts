@@ -32,15 +32,13 @@ substitutions.post('/', async (c) => {
     const { gameId, playerOutId, playerInId, quarter } = validated.data
 
     // OPTIMIZATION: Validate game and both players in PARALLEL
-    const [game, playerOut, playerIn] = await Promise.all([
+    const [game, playerOut, playerIn, latestSession] = await Promise.all([
       prisma.game.findUnique({
         where: { id: gameId },
         select: {
           id: true,
           homeTeamId: true,
           awayTeamId: true,
-          timerElapsedSeconds: true, // NEW: Get timer state for minutes calculation
-          timerIsRunning: true, // NEW: Get timer state for minutes calculation
         },
       }),
       prisma.player.findUnique({
@@ -61,6 +59,15 @@ substitutions.post('/', async (c) => {
           name: true,
           jerseyNumber: true,
           position: true,
+        },
+      }),
+      prisma.clockSession.findFirst({
+        where: { gameId },
+        orderBy: { systemTimestamp: 'desc' },
+        select: {
+          status: true,
+          secondsRemaining: true,
+          systemTimestamp: true,
         },
       }),
     ])
@@ -94,6 +101,15 @@ substitutions.post('/', async (c) => {
         { error: 'Players do not belong to either team in this game' },
         400
       )
+    }
+
+    // Calculate current seconds from clock session
+    let currentSeconds = latestSession?.secondsRemaining ?? 600
+    const isClockRunning = latestSession?.status === 'RUNNING'
+
+    if (isClockRunning && latestSession) {
+      const elapsedMs = Date.now() - latestSession.systemTimestamp.getTime()
+      currentSeconds = Math.max(0, latestSession.secondsRemaining - Math.floor(elapsedMs / 1000))
     }
 
     // Execute transaction: verify statuses, swap, and create actions
@@ -130,20 +146,21 @@ substitutions.post('/', async (c) => {
         throw new Error('Player to substitute in is already on court')
       }
 
-      // MINUTES LOGIC: Update based on timer state
-      if (game.timerIsRunning) {
-        // Timer running: Calculate minutes for player OUT, set entry time for player IN
+      // MINUTES LOGIC: Update based on clock state
+      if (isClockRunning) {
+        // Clock running: Calculate minutes for player OUT, set entry time for player IN
 
         // Player OUT: Calculate seconds played and add to total
         if (statusOut.lastSubInTime !== null) {
-          const secondsPlayed = statusOut.lastSubInTime - game.timerElapsedSeconds
+          const secondsPlayed = statusOut.lastSubInTime - currentSeconds
 
           // Validate seconds played is non-negative
           if (secondsPlayed < 0) {
-            console.error('Negative seconds played during substitution', {
+            console.error('NEGATIVE_SEGMENT_DETECTED during substitution', {
               playerId: statusOut.playerId,
               lastSubInTime: statusOut.lastSubInTime,
-              currentElapsed: game.timerElapsedSeconds,
+              currentSeconds,
+              secondsPlayed,
             })
             // Continue with swap but don't update minutes
             await tx.playerGameStatus.update({
@@ -174,7 +191,7 @@ substitutions.post('/', async (c) => {
             })
           }
         } else {
-          // Edge case: lastSubInTime null but timer running (shouldn't happen)
+          // Edge case: lastSubInTime null but clock running (shouldn't happen)
           await tx.playerGameStatus.update({
             where: {
               gameId_playerId: {
@@ -186,7 +203,7 @@ substitutions.post('/', async (c) => {
           })
         }
 
-        // Player IN: Set lastSubInTime to current timer value
+        // Player IN: Set lastSubInTime to current seconds
         await tx.playerGameStatus.update({
           where: {
             gameId_playerId: {
@@ -196,11 +213,11 @@ substitutions.post('/', async (c) => {
           },
           data: {
             isOnCourt: true,
-            lastSubInTime: game.timerElapsedSeconds,
+            lastSubInTime: currentSeconds,
           },
         })
       } else {
-        // Timer not running: Simple swap without minutes calculation
+        // Clock not running: Simple swap without minutes calculation
         await Promise.all([
           tx.playerGameStatus.update({
             where: {
@@ -223,7 +240,7 @@ substitutions.post('/', async (c) => {
         ])
       }
 
-      // Create SUB_OUT and SUB_IN actions with elapsedSeconds
+      // Create SUB_OUT and SUB_IN actions with exact snapshot
       const [subOutAction, subInAction] = await Promise.all([
         tx.action.create({
           data: {
@@ -231,7 +248,7 @@ substitutions.post('/', async (c) => {
             playerId: playerOutId,
             type: 'SUB_OUT',
             quarter,
-            elapsedSeconds: game.timerElapsedSeconds, // NEW: Store timer value
+            elapsedSeconds: currentSeconds, // Exact snapshot from clock session
           },
         }),
         tx.action.create({
@@ -240,7 +257,7 @@ substitutions.post('/', async (c) => {
             playerId: playerInId,
             type: 'SUB_IN',
             quarter,
-            elapsedSeconds: game.timerElapsedSeconds, // NEW: Store timer value
+            elapsedSeconds: currentSeconds, // Exact snapshot from clock session
           },
         }),
       ])

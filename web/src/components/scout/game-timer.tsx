@@ -4,49 +4,71 @@ import * as React from 'react'
 import { Play, Pause, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTimerControl } from '@/lib/hooks/use-game'
+import type { ClockSession } from '@/types/game'
 
 interface GameTimerProps {
   gameId: string
-  initialSeconds: number
-  isRunning: boolean
+  clockSessions: ClockSession[]
   onTimerUpdate?: (seconds: number) => void
   className?: string
 }
 
 export function GameTimer({
   gameId,
-  initialSeconds,
-  isRunning: initialIsRunning,
+  clockSessions,
   onTimerUpdate,
   className,
 }: GameTimerProps) {
-  const [elapsedSeconds, setElapsedSeconds] = React.useState(initialSeconds)
-  const [isRunning, setIsRunning] = React.useState(initialIsRunning)
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
-  const elapsedSecondsRef = React.useRef(initialSeconds)
+  // Helper to calculate clock state from sessions
+  const getClockState = React.useCallback(() => {
+    if (clockSessions.length === 0) {
+      return { seconds: 600, isRunning: false }
+    }
 
-  // Keep ref in sync with state
-  React.useEffect(() => {
-    elapsedSecondsRef.current = elapsedSeconds
-  }, [elapsedSeconds])
+    const latest = clockSessions[clockSessions.length - 1]
+    const isRunning = latest.status === 'RUNNING'
+
+    if (!isRunning) {
+      return { seconds: latest.secondsRemaining, isRunning: false }
+    }
+
+    // Calculate elapsed time since session started
+    const elapsedMs = Date.now() - new Date(latest.systemTimestamp).getTime()
+    const currentSeconds = Math.max(0, latest.secondsRemaining - Math.floor(elapsedMs / 1000))
+
+    return { seconds: currentSeconds, isRunning: true }
+  }, [clockSessions])
+
+  const clockState = getClockState()
+  const serverIsRunning = clockState.isRunning
+
+  // Display value - calculated from server state
+  const [displaySeconds, setDisplaySeconds] = React.useState(clockState.seconds)
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  // Track pending mutations to avoid UI jumps
+  const isPendingRef = React.useRef(false)
 
   const { startTimer, pauseTimer, resetTimer } = useTimerControl()
 
-  // Countdown interval - runs every second
+  // Calculate current seconds based on server state
+  const calculateCurrentSeconds = React.useCallback(() => {
+    return getClockState().seconds
+  }, [getClockState])
+
+  // Update display every 100ms for smooth countdown
   React.useEffect(() => {
-    if (isRunning && elapsedSeconds > 0) {
+    if (serverIsRunning && !isPendingRef.current) {
       intervalRef.current = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const next = prev - 1
-          if (next <= 0) {
-            // Auto-pause at 00:00
-            setIsRunning(false)
-            pauseTimer.mutate({ gameId, elapsedSeconds: 0 })
-            return 0
-          }
-          return next
-        })
-      }, 1000) // Update every second
+        const current = calculateCurrentSeconds()
+        setDisplaySeconds(current)
+        onTimerUpdate?.(current)
+
+        // Auto-pause at 00:00
+        if (current <= 0) {
+          pauseTimer.mutate({ gameId, elapsedSeconds: 0 })
+        }
+      }, 100)
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
@@ -59,37 +81,60 @@ export function GameTimer({
         clearInterval(intervalRef.current)
       }
     }
-  }, [isRunning, elapsedSeconds, gameId, pauseTimer])
+  }, [serverIsRunning, calculateCurrentSeconds, onTimerUpdate, gameId, pauseTimer])
 
-  // Notify parent when timer value changes
+  // Sync display when server state changes (only if not pending)
   React.useEffect(() => {
-    onTimerUpdate?.(elapsedSeconds)
-  }, [elapsedSeconds, onTimerUpdate])
+    if (!isPendingRef.current) {
+      const current = calculateCurrentSeconds()
+      setDisplaySeconds(current)
+      onTimerUpdate?.(current)
+    }
+  }, [calculateCurrentSeconds, onTimerUpdate])
 
   const handleStart = React.useCallback(() => {
-    setIsRunning(true)
-    startTimer.mutate({ gameId })
+    isPendingRef.current = true
+    startTimer.mutate(
+      { gameId },
+      {
+        onSettled: () => {
+          isPendingRef.current = false
+        },
+      }
+    )
   }, [gameId, startTimer])
 
   const handlePause = React.useCallback(() => {
-    setIsRunning(false)
-    // Use ref to get the latest value, avoiding stale closure
-    const currentSeconds = elapsedSecondsRef.current
+    isPendingRef.current = true
+    const currentSeconds = calculateCurrentSeconds()
 
-    // Validate the value before sending
-    if (typeof currentSeconds !== 'number' || isNaN(currentSeconds)) {
-      console.error('Invalid elapsedSeconds value:', currentSeconds)
-      return
+    // Immediately stop the display countdown
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
     }
 
-    console.log('Pausing timer with seconds:', currentSeconds)
-    pauseTimer.mutate({ gameId, elapsedSeconds: currentSeconds })
-  }, [gameId, pauseTimer])
+    pauseTimer.mutate(
+      { gameId, elapsedSeconds: currentSeconds },
+      {
+        onSettled: () => {
+          isPendingRef.current = false
+        },
+      }
+    )
+  }, [gameId, calculateCurrentSeconds, pauseTimer])
 
   const handleReset = React.useCallback(() => {
-    setElapsedSeconds(600)
-    setIsRunning(false)
-    resetTimer.mutate({ gameId })
+    isPendingRef.current = true
+    setDisplaySeconds(600)
+    resetTimer.mutate(
+      { gameId },
+      {
+        onSettled: () => {
+          isPendingRef.current = false
+        },
+      }
+    )
   }, [gameId, resetTimer])
 
   // Format seconds to MM:SS
@@ -99,39 +144,33 @@ export function GameTimer({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Sync state when props change (from real-time updates)
-  React.useEffect(() => {
-    setElapsedSeconds(initialSeconds)
-    setIsRunning(initialIsRunning)
-  }, [initialSeconds, initialIsRunning])
-
   return (
     <div className={cn('flex items-center gap-2', className)}>
       {/* Timer Display */}
       <div
         className={cn(
           'font-mono text-2xl font-bold tabular-nums transition-colors',
-          isRunning ? 'text-green-600' : 'text-orange-600',
-          elapsedSeconds === 0 && 'text-red-600'
+          serverIsRunning ? 'text-green-600' : 'text-orange-600',
+          displaySeconds === 0 && 'text-red-600'
         )}
       >
-        {formatTime(elapsedSeconds)}
+        {formatTime(displaySeconds)}
       </div>
 
       {/* Play/Pause Button */}
       <button
-        onClick={isRunning ? handlePause : handleStart}
-        disabled={elapsedSeconds === 0 || startTimer.isPending || pauseTimer.isPending}
+        onClick={serverIsRunning ? handlePause : handleStart}
+        disabled={displaySeconds === 0 || startTimer.isPending || pauseTimer.isPending}
         className={cn(
           'p-2 rounded-lg transition-all active:scale-95',
-          isRunning
+          serverIsRunning
             ? 'bg-green-100 text-green-700 hover:bg-green-200'
             : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-          elapsedSeconds === 0 && 'opacity-50 cursor-not-allowed'
+          displaySeconds === 0 && 'opacity-50 cursor-not-allowed'
         )}
-        aria-label={isRunning ? 'Pause timer' : 'Start timer'}
+        aria-label={serverIsRunning ? 'Pause timer' : 'Start timer'}
       >
-        {isRunning ? <Pause size={18} /> : <Play size={18} />}
+        {serverIsRunning ? <Pause size={18} /> : <Play size={18} />}
       </button>
 
       {/* Reset Button */}

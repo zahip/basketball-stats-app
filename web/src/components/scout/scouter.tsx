@@ -58,14 +58,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
     }
   }, [data])
 
-  // Sync timer state with game data
-  React.useEffect(() => {
-    if (data) {
-      setCurrentTimerSeconds(data.timerElapsedSeconds)
-    }
-  }, [data?.timerElapsedSeconds])
-
-  const handleOpenBenchDrawer = React.useCallback((team: 'home' | 'away', teamId: string) => {
+  const handleOpenBenchDrawer = React.useCallback((_team: 'home' | 'away', teamId: string) => {
     setBenchDrawerOpen(true)
     setIsSubMode(true)
     setPendingSwap({ teamId, inId: '', outId: '' })
@@ -273,8 +266,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
           {/* Game Timer */}
           <GameTimer
             gameId={game.id}
-            initialSeconds={game.timerElapsedSeconds}
-            isRunning={game.timerIsRunning}
+            clockSessions={game.clockSessions}
             onTimerUpdate={setCurrentTimerSeconds}
           />
         </div>

@@ -43,6 +43,11 @@ enum Position {
   C
 }
 
+enum ClockStatus {
+  RUNNING
+  PAUSED
+}
+
 // Models
 model Team {
   id        String   @id @default(uuid())
@@ -74,14 +79,15 @@ model Game {
   scoreHome           Int                @default(0)
   scoreAway           Int                @default(0)
   summary             String?            @db.Text
-  timerElapsedSeconds Int                @default(600) // Game timer in seconds (starts at 10:00)
-  timerIsRunning      Boolean            @default(false) // Is timer currently running
-  timerLastUpdatedAt  DateTime?          // Last time timer was updated
+  timerElapsedSeconds Int                @default(600) // DEPRECATED: Will be removed after migration to clock sessions
+  timerIsRunning      Boolean            @default(false) // DEPRECATED: Will be removed after migration to clock sessions
+  timerLastUpdatedAt  DateTime?          // DEPRECATED: Will be removed after migration to clock sessions
   createdAt           DateTime           @default(now())
   homeTeam            Team               @relation("HomeTeam", fields: [homeTeamId], references: [id])
   awayTeam            Team               @relation("AwayTeam", fields: [awayTeamId], references: [id])
   actions             Action[]
   playerStatuses      PlayerGameStatus[]
+  clockSessions       ClockSession[]     // NEW: Clock session-based timer tracking
 }
 
 model Action {
@@ -107,8 +113,8 @@ model PlayerGameStatus {
   playerId           String
   isOnCourt          Boolean  @default(false)
   isStarter          Boolean  @default(false)
-  totalSecondsPlayed Int      @default(0) // Total playing time in seconds
-  lastSubInTime      Int? // Timer value when player last entered court (null if on bench)
+  totalSecondsPlayed Int      @default(0) // CACHE: Recalculated from clock sessions on pause/sub
+  lastSubInTime      Int?     // Exact secondsRemaining snapshot when player entered court (null if on bench)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   game               Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
@@ -117,4 +123,16 @@ model PlayerGameStatus {
   @@unique([gameId, playerId])
   @@index([gameId])
   @@index([playerId])
+}
+
+model ClockSession {
+  id               String      @id @default(uuid())
+  gameId           String
+  status           ClockStatus // RUNNING or PAUSED
+  secondsRemaining Int         // Game clock value at this state change (0-600)
+  systemTimestamp  DateTime    @default(now()) // Wall-clock time of this state change
+  createdAt        DateTime    @default(now())
+  game             Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, systemTimestamp])
 }

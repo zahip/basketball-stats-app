@@ -1,7 +1,9 @@
 'use client'
 
+import * as React from 'react'
 import type { Game } from '@/types/game'
 import { calculatePlayerBoxScore, formatMinutes } from '@/lib/stats/calculate-box-score'
+import { calculateLiveMinutes } from '@/lib/stats/calculate-live-minutes'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
@@ -15,10 +17,50 @@ interface PlayerBoxScoreProps {
  * PlayerBoxScore - Individual player statistics table with tabs for home/away teams
  * Shows Points, Rebounds, Assists, and Fouls for each player
  * Highlights "hot" players with >10 points
+ * Minutes update every 1 second for on-court players when clock is running
  */
 export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
+  const [liveMinutes, setLiveMinutes] = React.useState<Map<string, number>>(new Map())
+
   const homeBoxScore = calculatePlayerBoxScore(game.actions, game.homeTeamId, game.playerStatuses)
   const awayBoxScore = calculatePlayerBoxScore(game.actions, game.awayTeamId, game.playerStatuses)
+
+  // Update live minutes every 1 second when clock is running
+  React.useEffect(() => {
+    const latestSession = game.clockSessions[game.clockSessions.length - 1]
+    const isRunning = latestSession?.status === 'RUNNING'
+
+    if (!isRunning) {
+      setLiveMinutes(new Map()) // Clear live updates when paused
+      return
+    }
+
+    // Update immediately
+    const updateLiveMinutes = () => {
+      const newLiveMinutes = new Map<string, number>()
+
+      for (const status of game.playerStatuses) {
+        if (status.isOnCourt) {
+          const live = calculateLiveMinutes(game.clockSessions, status, new Date())
+          newLiveMinutes.set(status.playerId, live)
+        }
+      }
+
+      setLiveMinutes(newLiveMinutes)
+    }
+
+    updateLiveMinutes()
+
+    // Update every 1 second
+    const interval = setInterval(updateLiveMinutes, 1000)
+
+    return () => clearInterval(interval)
+  }, [game.clockSessions, game.playerStatuses])
+
+  // Helper to get display minutes (live if available, otherwise cached)
+  const getDisplayMinutes = (playerId: string, cachedMinutes: number) => {
+    return liveMinutes.get(playerId) ?? cachedMinutes
+  }
 
   return (
     <div
@@ -105,7 +147,7 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-mono text-slate-300">
-                        {formatMinutes(playerStats.minutes)}
+                        {formatMinutes(getDisplayMinutes(playerStats.playerId, playerStats.minutes))}
                       </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-semibold text-violet-400">
                         {playerStats.points}
@@ -179,7 +221,7 @@ export function PlayerBoxScore({ game, className }: PlayerBoxScoreProps) {
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-mono text-slate-300">
-                        {formatMinutes(playerStats.minutes)}
+                        {formatMinutes(getDisplayMinutes(playerStats.playerId, playerStats.minutes))}
                       </td>
                       <td className="px-3 py-2.5 text-sm md:px-4 md:py-3 text-center font-semibold text-sky-400">
                         {playerStats.points}

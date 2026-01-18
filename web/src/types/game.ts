@@ -18,6 +18,17 @@ export type GameStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED'
 
 export type Position = 'PG' | 'SG' | 'SF' | 'PF' | 'C'
 
+export type ClockStatus = 'RUNNING' | 'PAUSED'
+
+export interface ClockSession {
+  id: string
+  gameId: string
+  status: ClockStatus
+  secondsRemaining: number // Game clock value at this state change (0-600)
+  systemTimestamp: string // ISO timestamp of when this state change occurred
+  createdAt: string
+}
+
 export interface Player {
   id: string
   name: string
@@ -52,8 +63,8 @@ export interface PlayerGameStatus {
   playerId: string
   isOnCourt: boolean
   isStarter: boolean
-  totalSecondsPlayed: number // Total playing time in seconds
-  lastSubInTime: number | null // Timer value when player last entered court (null if on bench)
+  totalSecondsPlayed: number // CACHE: Recalculated from clock sessions on pause/sub
+  lastSubInTime: number | null // Exact secondsRemaining snapshot when player entered court (null if on bench)
   createdAt: string
   updatedAt: string
   player: Player
@@ -67,12 +78,13 @@ export interface Game {
   scoreHome: number
   scoreAway: number
   summary?: string | null
-  timerElapsedSeconds: number // Current timer value (0-600 seconds)
-  timerIsRunning: boolean // Is timer currently running
-  timerLastUpdatedAt: string | null // Last time timer was updated
+  timerElapsedSeconds: number // DEPRECATED: Will be removed after migration to clock sessions
+  timerIsRunning: boolean // DEPRECATED: Will be removed after migration to clock sessions
+  timerLastUpdatedAt: string | null // DEPRECATED: Will be removed after migration to clock sessions
   createdAt: string
   homeTeam: Team
   awayTeam: Team
   actions: Action[]
   playerStatuses: PlayerGameStatus[]
+  clockSessions: ClockSession[] // NEW: Clock session-based timer tracking
 }
