@@ -130,6 +130,7 @@ model ClockSession {
   gameId           String
   status           ClockStatus // RUNNING or PAUSED
   secondsRemaining Int         // Game clock value at this state change (0-600)
+  currentPeriod    Int         @default(1) // Current period: 1-4 for regular, 5+ for OT
   systemTimestamp  DateTime    @default(now()) // Wall-clock time of this state change
   createdAt        DateTime    @default(now())
   game             Game        @relation(fields: [gameId], references: [id], onDelete: Cascade)

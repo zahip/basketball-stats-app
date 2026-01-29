@@ -242,7 +242,7 @@ export function useSubstitution() {
         variant: 'destructive',
       })
     },
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       // Invalidate to get fresh data with SUB_IN/SUB_OUT actions
       queryClient.invalidateQueries({ queryKey: ['game', variables.gameId] })
 
@@ -421,7 +421,7 @@ export function useTimerControl() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
-  const startTimer = useMutation({
+  const startTimer = useMutation<any, Error, { gameId: string }, MutationContext>({
     mutationFn: async ({ gameId }: { gameId: string }) => {
       const response = await apiClient(`/api/games/${gameId}/timer/start`, {
         method: 'POST',
@@ -434,17 +434,60 @@ export function useTimerControl() {
 
       return response.json()
     },
+    onMutate: async (variables) => {
+      // Snapshot the previous value (don't cancel queries - allow rapid clicks)
+      const previousData = queryClient.getQueryData<GameResponse>(['game', variables.gameId])
+
+      // Optimistically update to RUNNING
+      if (previousData) {
+        const latestSession = previousData.clockSessions[previousData.clockSessions.length - 1]
+        const secondsRemaining = latestSession?.secondsRemaining ?? 600
+        const currentPeriod = latestSession?.currentPeriod ?? 1
+
+        const optimisticSession = {
+          id: `temp-${Date.now()}`,
+          gameId: variables.gameId,
+          status: 'RUNNING' as const,
+          secondsRemaining,
+          currentPeriod,
+          systemTimestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }
+
+        queryClient.setQueryData<GameResponse>(['game', variables.gameId], {
+          ...previousData,
+          clockSessions: [...previousData.clockSessions, optimisticSession],
+        })
+      }
+
+      return { previousData }
+    },
     onSuccess: (data, variables) => {
-      // Update cache immediately with server response
+      // Merge server response but keep optimistic timestamp for smooth countdown
       const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
       if (existingData && data.session) {
+        // Find the optimistic session to preserve its client-side timestamp
+        const optimisticSession = existingData.clockSessions.find(s => s.id.startsWith('temp-'))
+
         queryClient.setQueryData<Game>(['game', variables.gameId], {
           ...existingData,
-          clockSessions: [...existingData.clockSessions, data.session],
+          clockSessions: [
+            ...existingData.clockSessions.filter(s => !s.id.startsWith('temp-')),
+            {
+              ...data.session,
+              // Preserve client timestamp to avoid timer jump
+              systemTimestamp: optimisticSession?.systemTimestamp || data.session.systemTimestamp
+            }
+          ],
         })
       }
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['game', variables.gameId], context.previousData)
+      }
+
       toast({
         title: 'Timer Error',
         description: error.message || 'Failed to start timer',
@@ -453,7 +496,7 @@ export function useTimerControl() {
     },
   })
 
-  const pauseTimer = useMutation({
+  const pauseTimer = useMutation<any, Error, { gameId: string; elapsedSeconds: number }, MutationContext>({
     mutationFn: async ({ gameId, elapsedSeconds }: { gameId: string; elapsedSeconds: number }) => {
       const response = await apiClient(`/api/games/${gameId}/timer/pause`, {
         method: 'POST',
@@ -467,17 +510,59 @@ export function useTimerControl() {
 
       return response.json()
     },
+    onMutate: async (variables) => {
+      // Snapshot the previous value (don't cancel queries - allow rapid clicks)
+      const previousData = queryClient.getQueryData<GameResponse>(['game', variables.gameId])
+
+      // Optimistically update to PAUSED
+      if (previousData) {
+        const latestSession = previousData.clockSessions[previousData.clockSessions.length - 1]
+        const currentPeriod = latestSession?.currentPeriod ?? 1
+
+        const optimisticSession = {
+          id: `temp-${Date.now()}`,
+          gameId: variables.gameId,
+          status: 'PAUSED' as const,
+          secondsRemaining: variables.elapsedSeconds,
+          currentPeriod,
+          systemTimestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }
+
+        queryClient.setQueryData<GameResponse>(['game', variables.gameId], {
+          ...previousData,
+          clockSessions: [...previousData.clockSessions, optimisticSession],
+        })
+      }
+
+      return { previousData }
+    },
     onSuccess: (data, variables) => {
-      // Update cache immediately with server response
+      // Merge server response but keep optimistic timestamp for smooth countdown
       const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
       if (existingData && data.session) {
+        // Find the optimistic session to preserve its client-side timestamp
+        const optimisticSession = existingData.clockSessions.find(s => s.id.startsWith('temp-'))
+
         queryClient.setQueryData<Game>(['game', variables.gameId], {
           ...existingData,
-          clockSessions: [...existingData.clockSessions, data.session],
+          clockSessions: [
+            ...existingData.clockSessions.filter(s => !s.id.startsWith('temp-')),
+            {
+              ...data.session,
+              // Preserve client timestamp to avoid timer jump
+              systemTimestamp: optimisticSession?.systemTimestamp || data.session.systemTimestamp
+            }
+          ],
         })
       }
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['game', variables.gameId], context.previousData)
+      }
+
       toast({
         title: 'Timer Error',
         description: error.message || 'Failed to pause timer',
@@ -486,7 +571,7 @@ export function useTimerControl() {
     },
   })
 
-  const resetTimer = useMutation({
+  const resetTimer = useMutation<any, Error, { gameId: string }, MutationContext>({
     mutationFn: async ({ gameId }: { gameId: string }) => {
       const response = await apiClient(`/api/games/${gameId}/timer/reset`, {
         method: 'POST',
@@ -499,17 +584,59 @@ export function useTimerControl() {
 
       return response.json()
     },
+    onMutate: async (variables) => {
+      // Snapshot the previous value (don't cancel queries - allow rapid clicks)
+      const previousData = queryClient.getQueryData<GameResponse>(['game', variables.gameId])
+
+      // Optimistically update to PAUSED at 10:00
+      if (previousData) {
+        const latestSession = previousData.clockSessions[previousData.clockSessions.length - 1]
+        const currentPeriod = latestSession?.currentPeriod ?? 1
+
+        const optimisticSession = {
+          id: `temp-${Date.now()}`,
+          gameId: variables.gameId,
+          status: 'PAUSED' as const,
+          secondsRemaining: 600,
+          currentPeriod,
+          systemTimestamp: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }
+
+        queryClient.setQueryData<GameResponse>(['game', variables.gameId], {
+          ...previousData,
+          clockSessions: [...previousData.clockSessions, optimisticSession],
+        })
+      }
+
+      return { previousData }
+    },
     onSuccess: (data, variables) => {
-      // Update cache immediately with server response
+      // Merge server response but keep optimistic timestamp for smooth countdown
       const existingData = queryClient.getQueryData<Game>(['game', variables.gameId])
       if (existingData && data.session) {
+        // Find the optimistic session to preserve its client-side timestamp
+        const optimisticSession = existingData.clockSessions.find(s => s.id.startsWith('temp-'))
+
         queryClient.setQueryData<Game>(['game', variables.gameId], {
           ...existingData,
-          clockSessions: [...existingData.clockSessions, data.session],
+          clockSessions: [
+            ...existingData.clockSessions.filter(s => !s.id.startsWith('temp-')),
+            {
+              ...data.session,
+              // Preserve client timestamp to avoid timer jump
+              systemTimestamp: optimisticSession?.systemTimestamp || data.session.systemTimestamp
+            }
+          ],
         })
       }
     },
-    onError: (error) => {
+    onError: (error, variables, context) => {
+      // Rollback to previous data on error
+      if (context?.previousData) {
+        queryClient.setQueryData(['game', variables.gameId], context.previousData)
+      }
+
       toast({
         title: 'Timer Error',
         description: error.message || 'Failed to reset timer',

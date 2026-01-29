@@ -34,7 +34,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
   useGameRealtime(gameId)
 
   const [selectedPlayerId, setSelectedPlayerId] = React.useState<string | null>(null)
-  const [currentQuarter, setCurrentQuarter] = React.useState(1)
+  const [currentPeriod, setCurrentPeriod] = React.useState(1)
   const [historyOpen, setHistoryOpen] = React.useState(false)
   const [startersDialogOpen, setStartersDialogOpen] = React.useState(false)
   const [shotMapOpen, setShotMapOpen] = React.useState(false)
@@ -102,14 +102,14 @@ export function Scouter({ gameId, className }: ScouterProps) {
       gameId,
       playerOutId: pendingSwap.outId,
       playerInId: pendingSwap.inId,
-      quarter: currentQuarter,
+      quarter: currentPeriod,
     })
 
     // Reset
     setPendingSwap(null)
     setIsSubMode(false)
     setBenchDrawerOpen(false)
-  }, [pendingSwap, gameId, currentQuarter, substitution, queryClient])
+  }, [pendingSwap, gameId, currentPeriod, substitution, queryClient])
 
   const handleAction = React.useCallback(
     (type: ActionType | 'UNDO') => {
@@ -154,11 +154,11 @@ export function Scouter({ gameId, className }: ScouterProps) {
         gameId,
         playerId: selectedPlayerId,
         type,
-        quarter: currentQuarter,
+        quarter: currentPeriod,
         elapsedSeconds: currentTimerSeconds,
       })
     },
-    [gameId, selectedPlayerId, currentQuarter, currentTimerSeconds, recordAction, data, toast]
+    [gameId, selectedPlayerId, currentPeriod, currentTimerSeconds, recordAction, data, toast]
   )
 
   const handleShotLocation = React.useCallback(
@@ -169,7 +169,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
         gameId,
         playerId: selectedPlayerId,
         type: pendingShotType,
-        quarter: currentQuarter,
+        quarter: currentPeriod,
         locationX: x,
         locationY: y,
         elapsedSeconds: currentTimerSeconds,
@@ -178,7 +178,7 @@ export function Scouter({ gameId, className }: ScouterProps) {
       setShotMapOpen(false)
       setPendingShotType(null)
     },
-    [pendingShotType, selectedPlayerId, gameId, currentQuarter, currentTimerSeconds, recordAction]
+    [pendingShotType, selectedPlayerId, gameId, currentPeriod, currentTimerSeconds, recordAction]
   )
 
   const handleDeleteAction = React.useCallback(
@@ -266,27 +266,9 @@ export function Scouter({ gameId, className }: ScouterProps) {
           {/* Game Timer */}
           <GameTimer
             gameId={game.id}
-            clockSessions={game.clockSessions}
             onTimerUpdate={setCurrentTimerSeconds}
+            onPeriodUpdate={setCurrentPeriod}
           />
-        </div>
-
-        {/* Period Selector - Right */}
-        <div className="flex gap-1">
-          {[1, 2, 3, 4].map((quarter) => (
-            <button
-              key={quarter}
-              onClick={() => setCurrentQuarter(quarter)}
-              className={cn(
-                'w-7 h-7 text-xs font-bold rounded-lg transition-all active:scale-95',
-                currentQuarter === quarter
-                  ? 'bg-purple-500 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              )}
-            >
-              {quarter}
-            </button>
-          ))}
         </div>
       </div>
 

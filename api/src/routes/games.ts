@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { authMiddleware } from '@/middleware/auth'
 import { generateHebrewSummary } from '@/lib/generate-summary'
 import { broadcastGameEvent, removeChannel } from '@/lib/supabase'
+import { syncMinutesPlayed } from '@/lib/sync-minutes'
 // NOTE: recalculatePlayerMinutes available for future use
 // Currently using incremental minutes calculation during pause/sub events
 // import { recalculatePlayerMinutes } from '@/lib/calculate-minutes'
@@ -387,54 +388,48 @@ games.post('/:id/timer/start', authMiddleware, async (c) => {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Create RUNNING clock session + set lastSubInTime for on-court players
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Get latest clock session (validate not already running)
-      const latestSession = await tx.clockSession.findFirst({
-        where: { gameId },
-        orderBy: { systemTimestamp: 'desc' },
-        select: { status: true, secondsRemaining: true },
-      })
+    // Get latest session to validate and get current time + period
+    const latestSession = await prisma.clockSession.findFirst({
+      where: { gameId },
+      orderBy: { systemTimestamp: 'desc' },
+      select: { status: true, secondsRemaining: true, currentPeriod: true },
+    })
 
-      if (latestSession?.status === 'RUNNING') {
-        throw new Error('Clock is already running')
-      }
+    if (latestSession?.status === 'RUNNING') {
+      return c.json({ error: 'Clock is already running' }, 400)
+    }
 
-      const currentSeconds = latestSession?.secondsRemaining ?? 600
+    const currentSeconds = latestSession?.secondsRemaining ?? 600
+    const currentPeriod = latestSession?.currentPeriod ?? 1
 
-      // 2. Create RUNNING session
-      const session = await tx.clockSession.create({
+    // IMPORTANT: When clock starts, update lastSubInTime for all active players
+    const session = await prisma.$transaction(async (tx) => {
+      // Create RUNNING session
+      const newSession = await tx.clockSession.create({
         data: {
           gameId,
           status: 'RUNNING',
           secondsRemaining: currentSeconds,
+          currentPeriod, // Preserve current period
           systemTimestamp: new Date(),
         },
       })
 
-      // 3. Set lastSubInTime for on-court players (who don't have it set)
+      // Set lastSubInTime for all players currently on court
       await tx.playerGameStatus.updateMany({
         where: {
           gameId,
           isOnCourt: true,
-          lastSubInTime: null,
         },
         data: {
-          lastSubInTime: currentSeconds,
+          lastSubInTime: currentSeconds, // Snapshot entry time
         },
       })
 
-      // 4. Get game with teams for response
-      const game = await tx.game.findUnique({
-        where: { id: gameId },
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
-      })
-
-      return { session, game }
+      return newSession
     })
+
+    const result = { session, game: null }
 
     // Broadcast timer start event (non-blocking)
     broadcastGameEvent(gameId, {
@@ -456,10 +451,11 @@ games.post('/:id/timer/pause', authMiddleware, async (c) => {
   try {
     const gameId = c.req.param('id')
     const body = await c.req.json()
-    const { elapsedSeconds } = body
+    const { secondsRemaining } = body
 
-    if (typeof elapsedSeconds !== 'number' || elapsedSeconds < 0 || elapsedSeconds > 600) {
-      return c.json({ error: 'Invalid elapsedSeconds value (must be 0-600)' }, 400)
+    // Validate input
+    if (typeof secondsRemaining !== 'number' || secondsRemaining < 0 || secondsRemaining > 600) {
+      return c.json({ error: 'Invalid secondsRemaining value (must be 0-600)' }, 400)
     }
 
     const game = await prisma.game.findUnique({
@@ -471,87 +467,41 @@ games.post('/:id/timer/pause', authMiddleware, async (c) => {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Create PAUSED session + calculate minutes for on-court players
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Get latest clock session (must be RUNNING)
-      const latestSession = await tx.clockSession.findFirst({
-        where: { gameId },
-        orderBy: { systemTimestamp: 'desc' },
-        select: { status: true, secondsRemaining: true, systemTimestamp: true },
-      })
+    // Get latest session for currentPeriod
+    const latestSession = await prisma.clockSession.findFirst({
+      where: { gameId },
+      orderBy: { systemTimestamp: 'desc' },
+      select: { currentPeriod: true },
+    })
 
-      if (!latestSession || latestSession.status !== 'RUNNING') {
-        throw new Error('Clock is not running')
+    const currentPeriod = latestSession?.currentPeriod ?? 1
+
+    // Transaction: Sync minutes THEN create PAUSED session
+    const session = await prisma.$transaction(async (tx) => {
+      // 1. Sync minutes for all active players
+      console.log('[timer/pause] Calling syncMinutesPlayed', { gameId, secondsRemaining, currentPeriod })
+      try {
+        await syncMinutesPlayed(tx, gameId, secondsRemaining)
+        console.log('[timer/pause] syncMinutesPlayed completed successfully')
+      } catch (syncError) {
+        console.error('[timer/pause] syncMinutesPlayed failed:', syncError)
+        throw syncError
       }
 
-      // 2. Calculate server-side current seconds
-      const elapsedMs = Date.now() - latestSession.systemTimestamp.getTime()
-      const currentSeconds = Math.max(0, latestSession.secondsRemaining - Math.floor(elapsedMs / 1000))
-
-      // Optional: Log if client-server drift is significant
-      if (Math.abs(currentSeconds - elapsedSeconds) > 2) {
-        console.warn(`Clock drift detected: server=${currentSeconds}, client=${elapsedSeconds}`)
-      }
-
-      // 3. Create PAUSED session (use server calculation)
-      const session = await tx.clockSession.create({
+      // 2. Create PAUSED session
+      console.log('[timer/pause] Creating PAUSED ClockSession')
+      return await tx.clockSession.create({
         data: {
           gameId,
           status: 'PAUSED',
-          secondsRemaining: currentSeconds,
+          secondsRemaining,
+          currentPeriod, // Preserve current period
           systemTimestamp: new Date(),
         },
       })
-
-      // 4. Calculate minutes for on-court players using old logic
-      // (Full recalculatePlayerMinutes not implemented yet - using incremental approach)
-      const onCourtPlayers = await tx.playerGameStatus.findMany({
-        where: {
-          gameId,
-          isOnCourt: true,
-          lastSubInTime: { not: null },
-        },
-        select: {
-          id: true,
-          playerId: true,
-          lastSubInTime: true,
-          totalSecondsPlayed: true,
-        },
-      })
-
-      for (const player of onCourtPlayers) {
-        const secondsPlayed = player.lastSubInTime! - currentSeconds
-
-        if (secondsPlayed < 0) {
-          console.error('NEGATIVE_SEGMENT_DETECTED', {
-            playerId: player.playerId,
-            lastSubInTime: player.lastSubInTime,
-            currentSeconds,
-            secondsPlayed,
-          })
-          continue // Skip this update
-        }
-
-        await tx.playerGameStatus.update({
-          where: { id: player.id },
-          data: {
-            totalSecondsPlayed: player.totalSecondsPlayed + secondsPlayed,
-            lastSubInTime: null,
-          },
-        })
-      }
-
-      // 5. Get game with teams for response
-      const game = await tx.game.findUnique({
-        where: { id: gameId },
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
-      })
-
-      return { session, game }
     })
+
+    const result = { session, game: null }
 
     // Broadcast timer pause event (non-blocking)
     broadcastGameEvent(gameId, {
@@ -585,84 +535,27 @@ games.post('/:id/timer/reset', authMiddleware, async (c) => {
       return c.json({ error: 'Game not found' }, 404)
     }
 
-    // TRANSACTION: Create PAUSED session at 600 + calculate minutes if running
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Get latest clock session
-      const latestSession = await tx.clockSession.findFirst({
-        where: { gameId },
-        orderBy: { systemTimestamp: 'desc' },
-        select: { status: true, secondsRemaining: true, systemTimestamp: true },
-      })
-
-      // 2. If timer was running, calculate minutes for on-court players
-      if (latestSession?.status === 'RUNNING') {
-        const elapsedMs = Date.now() - latestSession.systemTimestamp.getTime()
-        const currentSeconds = Math.max(0, latestSession.secondsRemaining - Math.floor(elapsedMs / 1000))
-
-        const onCourtPlayers = await tx.playerGameStatus.findMany({
-          where: {
-            gameId,
-            isOnCourt: true,
-            lastSubInTime: { not: null },
-          },
-          select: {
-            id: true,
-            playerId: true,
-            lastSubInTime: true,
-            totalSecondsPlayed: true,
-          },
-        })
-
-        for (const player of onCourtPlayers) {
-          const secondsPlayed = player.lastSubInTime! - currentSeconds
-
-          if (secondsPlayed < 0) {
-            console.error('NEGATIVE_SEGMENT_DETECTED on reset', {
-              playerId: player.playerId,
-              lastSubInTime: player.lastSubInTime,
-              currentSeconds,
-              secondsPlayed,
-            })
-            continue
-          }
-
-          await tx.playerGameStatus.update({
-            where: { id: player.id },
-            data: {
-              totalSecondsPlayed: player.totalSecondsPlayed + secondsPlayed,
-              lastSubInTime: null,
-            },
-          })
-        }
-      } else {
-        // Timer not running, just clear lastSubInTime
-        await tx.playerGameStatus.updateMany({
-          where: { gameId, isOnCourt: true },
-          data: { lastSubInTime: null },
-        })
-      }
-
-      // 3. Create PAUSED session at 10:00
-      const session = await tx.clockSession.create({
-        data: {
-          gameId,
-          status: 'PAUSED',
-          secondsRemaining: 600,
-          systemTimestamp: new Date(),
-        },
-      })
-
-      // 4. Get game with teams for response
-      const game = await tx.game.findUnique({
-        where: { id: gameId },
-        include: {
-          homeTeam: { select: { id: true, name: true } },
-          awayTeam: { select: { id: true, name: true } },
-        },
-      })
-
-      return { session, game }
+    // Get latest session for currentPeriod
+    const latestSession = await prisma.clockSession.findFirst({
+      where: { gameId },
+      orderBy: { systemTimestamp: 'desc' },
+      select: { currentPeriod: true },
     })
+
+    const currentPeriod = latestSession?.currentPeriod ?? 1
+
+    // Create PAUSED session at 10:00 (preserve current period)
+    const session = await prisma.clockSession.create({
+      data: {
+        gameId,
+        status: 'PAUSED',
+        secondsRemaining: 600,
+        currentPeriod, // PRESERVE current period
+        systemTimestamp: new Date(),
+      },
+    })
+
+    const result = { session, game: null }
 
     // Broadcast timer reset event (non-blocking)
     broadcastGameEvent(gameId, {
@@ -676,6 +569,132 @@ games.post('/:id/timer/reset', authMiddleware, async (c) => {
     console.error('Error resetting timer:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return c.json({ error: errorMessage }, 500)
+  }
+})
+
+// POST /games/:id/timer/next-period - Advance to next period
+games.post('/:id/timer/next-period', authMiddleware, async (c) => {
+  try {
+    const gameId = c.req.param('id')
+
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { id: true },
+    })
+
+    if (!game) {
+      return c.json({ error: 'Game not found' }, 404)
+    }
+
+    // Get latest session to validate state
+    const latestSession = await prisma.clockSession.findFirst({
+      where: { gameId },
+      orderBy: { systemTimestamp: 'desc' },
+      select: { status: true, secondsRemaining: true, currentPeriod: true },
+    })
+
+    if (!latestSession) {
+      return c.json({ error: 'No clock session found' }, 400)
+    }
+
+    // Validate: Can only advance period if timer is at 0:00 and paused
+    if (latestSession.status === 'RUNNING') {
+      return c.json({ error: 'Cannot advance period while timer is running' }, 400)
+    }
+
+    if (latestSession.secondsRemaining !== 0) {
+      return c.json({
+        error: 'Cannot advance period until timer reaches 0:00',
+        currentSeconds: latestSession.secondsRemaining,
+      }, 400)
+    }
+
+    const nextPeriod = latestSession.currentPeriod + 1
+
+    // Transaction: Sync minutes (if any active), then create new period session
+    const session = await prisma.$transaction(async (tx) => {
+      // 1. Final sync for current period (in case pause didn't catch everything)
+      await syncMinutesPlayed(tx, gameId, 0)
+
+      // 2. Reset lastSubInTime to 600 for all active players (new period starts)
+      await tx.playerGameStatus.updateMany({
+        where: {
+          gameId,
+          isOnCourt: true,
+        },
+        data: {
+          lastSubInTime: 600, // Reset snapshot for new period
+        },
+      })
+
+      // 3. Create PAUSED session for new period at 10:00
+      return await tx.clockSession.create({
+        data: {
+          gameId,
+          status: 'PAUSED',
+          secondsRemaining: 600, // Reset to 10:00
+          currentPeriod: nextPeriod, // Increment period
+          systemTimestamp: new Date(),
+        },
+      })
+    })
+
+    // Broadcast period change event (non-blocking)
+    broadcastGameEvent(gameId, {
+      type: 'PERIOD_CHANGE',
+      gameId,
+      session,
+      newPeriod: nextPeriod,
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json({
+      success: true,
+      session,
+      message: `Advanced to period ${nextPeriod}`,
+    }, 200)
+  } catch (error) {
+    console.error('Error advancing period:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    return c.json({ error: errorMessage }, 500)
+  }
+})
+
+// POST /games/:id/timer/sync - Lightweight sync endpoint for page unload
+games.post('/:id/timer/sync', async (c) => {
+  try {
+    const gameId = c.req.param('id')
+    const { status, secondsRemaining, timestamp } = await c.req.json()
+
+    // Validate input
+    if (!status || typeof secondsRemaining !== 'number') {
+      return c.json({ error: 'Invalid sync data' }, 400)
+    }
+
+    if (secondsRemaining < 0 || secondsRemaining > 600) {
+      return c.json({ error: 'Invalid secondsRemaining value' }, 400)
+    }
+
+    // Create ClockSession without heavy validation (best-effort sync)
+    const session = await prisma.clockSession.create({
+      data: {
+        gameId,
+        status: status as 'RUNNING' | 'PAUSED',
+        secondsRemaining,
+        systemTimestamp: new Date(timestamp || Date.now())
+      }
+    })
+
+    // Non-blocking broadcast
+    broadcastGameEvent(gameId, {
+      type: status === 'RUNNING' ? 'TIMER_START' : 'TIMER_PAUSE',
+      gameId,
+      session
+    }).catch((err) => console.error('Broadcast error:', err))
+
+    return c.json({ success: true })
+  } catch (error) {
+    console.error('Error syncing timer:', error)
+    return c.json({ error: 'Sync failed' }, 500)
   }
 })
 

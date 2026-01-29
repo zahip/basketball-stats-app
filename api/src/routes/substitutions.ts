@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import { prisma } from '@/lib/db'
 import { broadcastGameEvent } from '@/lib/supabase'
+import { syncMinutesPlayed } from '@/lib/sync-minutes'
 
 const substitutions = new Hono()
 
@@ -146,76 +147,40 @@ substitutions.post('/', async (c) => {
         throw new Error('Player to substitute in is already on court')
       }
 
-      // MINUTES LOGIC: Update based on clock state
+      // MINUTES LOGIC: Simplified with syncMinutesPlayed()
       if (isClockRunning) {
-        // Clock running: Calculate minutes for player OUT, set entry time for player IN
+        // Clock running: Sync ALL active players, then perform swap
 
-        // Player OUT: Calculate seconds played and add to total
-        if (statusOut.lastSubInTime !== null) {
-          const secondsPlayed = statusOut.lastSubInTime - currentSeconds
+        // 1. Sync minutes for ALL active players (includes playerOut)
+        await syncMinutesPlayed(tx, gameId, currentSeconds)
 
-          // Validate seconds played is non-negative
-          if (secondsPlayed < 0) {
-            console.error('NEGATIVE_SEGMENT_DETECTED during substitution', {
-              playerId: statusOut.playerId,
-              lastSubInTime: statusOut.lastSubInTime,
-              currentSeconds,
-              secondsPlayed,
-            })
-            // Continue with swap but don't update minutes
-            await tx.playerGameStatus.update({
-              where: {
-                gameId_playerId: {
-                  gameId,
-                  playerId: playerOutId,
-                },
-              },
-              data: {
-                isOnCourt: false,
-                lastSubInTime: null,
-              },
-            })
-          } else {
-            await tx.playerGameStatus.update({
-              where: {
-                gameId_playerId: {
-                  gameId,
-                  playerId: playerOutId,
-                },
-              },
-              data: {
-                isOnCourt: false,
-                totalSecondsPlayed: statusOut.totalSecondsPlayed + secondsPlayed,
-                lastSubInTime: null,
-              },
-            })
-          }
-        } else {
-          // Edge case: lastSubInTime null but clock running (shouldn't happen)
-          await tx.playerGameStatus.update({
+        // 2. Swap players
+        await Promise.all([
+          tx.playerGameStatus.update({
             where: {
               gameId_playerId: {
                 gameId,
                 playerId: playerOutId,
               },
             },
-            data: { isOnCourt: false },
-          })
-        }
-
-        // Player IN: Set lastSubInTime to current seconds
-        await tx.playerGameStatus.update({
-          where: {
-            gameId_playerId: {
-              gameId,
-              playerId: playerInId,
+            data: {
+              isOnCourt: false,
+              lastSubInTime: null, // Player is now on bench
             },
-          },
-          data: {
-            isOnCourt: true,
-            lastSubInTime: currentSeconds,
-          },
-        })
+          }),
+          tx.playerGameStatus.update({
+            where: {
+              gameId_playerId: {
+                gameId,
+                playerId: playerInId,
+              },
+            },
+            data: {
+              isOnCourt: true,
+              lastSubInTime: currentSeconds, // Set entry time for new player
+            },
+          }),
+        ])
       } else {
         // Clock not running: Simple swap without minutes calculation
         await Promise.all([

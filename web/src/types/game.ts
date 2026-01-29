@@ -25,6 +25,7 @@ export interface ClockSession {
   gameId: string
   status: ClockStatus
   secondsRemaining: number // Game clock value at this state change (0-600)
+  currentPeriod: number // Current period: 1-4 for regular, 5+ for OT
   systemTimestamp: string // ISO timestamp of when this state change occurred
   createdAt: string
 }

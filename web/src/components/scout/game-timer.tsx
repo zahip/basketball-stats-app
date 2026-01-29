@@ -1,141 +1,82 @@
 'use client'
 
 import * as React from 'react'
-import { Play, Pause, RotateCcw } from 'lucide-react'
+import { Play, Pause, RotateCcw, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useTimerControl } from '@/lib/hooks/use-game'
+import { useLocalTimer } from '@/lib/hooks/use-local-timer'
+import { supabase } from '@/lib/supabase'
 import type { ClockSession } from '@/types/game'
 
 interface GameTimerProps {
   gameId: string
-  clockSessions: ClockSession[]
   onTimerUpdate?: (seconds: number) => void
+  onPeriodUpdate?: (period: number) => void
   className?: string
 }
 
 export function GameTimer({
   gameId,
-  clockSessions,
   onTimerUpdate,
+  onPeriodUpdate,
   className,
 }: GameTimerProps) {
-  // Helper to calculate clock state from sessions
-  const getClockState = React.useCallback(() => {
-    if (clockSessions.length === 0) {
-      return { seconds: 600, isRunning: false }
-    }
+  const {
+    displaySeconds,
+    currentPeriod,
+    status,
+    handleStart,
+    handlePause,
+    handleReset,
+    handleNextPeriod,
+    canAdvancePeriod,
+    isPendingSync,
+    syncFromServer
+  } = useLocalTimer(gameId)
 
-    const latest = clockSessions[clockSessions.length - 1]
-    const isRunning = latest.status === 'RUNNING'
-
-    if (!isRunning) {
-      return { seconds: latest.secondsRemaining, isRunning: false }
-    }
-
-    // Calculate elapsed time since session started
-    const elapsedMs = Date.now() - new Date(latest.systemTimestamp).getTime()
-    const currentSeconds = Math.max(0, latest.secondsRemaining - Math.floor(elapsedMs / 1000))
-
-    return { seconds: currentSeconds, isRunning: true }
-  }, [clockSessions])
-
-  const clockState = getClockState()
-  const serverIsRunning = clockState.isRunning
-
-  // Display value - calculated from server state
-  const [displaySeconds, setDisplaySeconds] = React.useState(clockState.seconds)
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null)
-
-  // Track pending mutations to avoid UI jumps
-  const isPendingRef = React.useRef(false)
-
-  const { startTimer, pauseTimer, resetTimer } = useTimerControl()
-
-  // Calculate current seconds based on server state
-  const calculateCurrentSeconds = React.useCallback(() => {
-    return getClockState().seconds
-  }, [getClockState])
-
-  // Update display every 100ms for smooth countdown
+  // Notify parent of timer updates
   React.useEffect(() => {
-    if (serverIsRunning && !isPendingRef.current) {
-      intervalRef.current = setInterval(() => {
-        const current = calculateCurrentSeconds()
-        setDisplaySeconds(current)
-        onTimerUpdate?.(current)
+    onTimerUpdate?.(displaySeconds)
+  }, [displaySeconds, onTimerUpdate])
 
-        // Auto-pause at 00:00
-        if (current <= 0) {
-          pauseTimer.mutate({ gameId, elapsedSeconds: 0 })
+  // Notify parent of period changes
+  React.useEffect(() => {
+    onPeriodUpdate?.(currentPeriod)
+  }, [currentPeriod, onPeriodUpdate])
+
+  // Subscribe to realtime timer updates from other clients
+  React.useEffect(() => {
+    if (!supabase) return
+
+    const channel = supabase
+      .channel(`game:${gameId}`)
+      .on('broadcast', { event: 'TIMER_START' }, ({ payload }: { payload: { session: ClockSession } }) => {
+        if (payload?.session) {
+          syncFromServer(payload.session)
         }
-      }, 100)
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
-    }
+      })
+      .on('broadcast', { event: 'TIMER_PAUSE' }, ({ payload }: { payload: { session: ClockSession } }) => {
+        if (payload?.session) {
+          syncFromServer(payload.session)
+        }
+      })
+      .on('broadcast', { event: 'TIMER_RESET' }, ({ payload }: { payload: { session: ClockSession } }) => {
+        if (payload?.session) {
+          syncFromServer(payload.session)
+        }
+      })
+      .on('broadcast', { event: 'PERIOD_CHANGE' }, ({ payload }: { payload: { session: ClockSession } }) => {
+        if (payload?.session) {
+          syncFromServer(payload.session)
+        }
+      })
+      .subscribe()
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
+      if (supabase) {
+        supabase.removeChannel(channel)
       }
     }
-  }, [serverIsRunning, calculateCurrentSeconds, onTimerUpdate, gameId, pauseTimer])
-
-  // Sync display when server state changes (only if not pending)
-  React.useEffect(() => {
-    if (!isPendingRef.current) {
-      const current = calculateCurrentSeconds()
-      setDisplaySeconds(current)
-      onTimerUpdate?.(current)
-    }
-  }, [calculateCurrentSeconds, onTimerUpdate])
-
-  const handleStart = React.useCallback(() => {
-    isPendingRef.current = true
-    startTimer.mutate(
-      { gameId },
-      {
-        onSettled: () => {
-          isPendingRef.current = false
-        },
-      }
-    )
-  }, [gameId, startTimer])
-
-  const handlePause = React.useCallback(() => {
-    isPendingRef.current = true
-    const currentSeconds = calculateCurrentSeconds()
-
-    // Immediately stop the display countdown
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-
-    pauseTimer.mutate(
-      { gameId, elapsedSeconds: currentSeconds },
-      {
-        onSettled: () => {
-          isPendingRef.current = false
-        },
-      }
-    )
-  }, [gameId, calculateCurrentSeconds, pauseTimer])
-
-  const handleReset = React.useCallback(() => {
-    isPendingRef.current = true
-    setDisplaySeconds(600)
-    resetTimer.mutate(
-      { gameId },
-      {
-        onSettled: () => {
-          isPendingRef.current = false
-        },
-      }
-    )
-  }, [gameId, resetTimer])
+  }, [gameId, syncFromServer])
 
   // Format seconds to MM:SS
   const formatTime = (seconds: number) => {
@@ -144,44 +85,71 @@ export function GameTimer({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Get period label (Q1, Q2, Q3, Q4, OT1, OT2, etc.)
+  const getPeriodLabel = (period: number) => {
+    if (period <= 4) return `Q${period}`
+    return `OT${period - 4}`
+  }
+
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn('flex items-center gap-3', className)}>
+      {/* Period Badge */}
+      <div className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded">
+        {getPeriodLabel(currentPeriod)}
+      </div>
+
       {/* Timer Display */}
       <div
         className={cn(
           'font-mono text-2xl font-bold tabular-nums transition-colors',
-          serverIsRunning ? 'text-green-600' : 'text-orange-600',
+          status === 'RUNNING' ? 'text-green-600' : 'text-orange-600',
           displaySeconds === 0 && 'text-red-600'
         )}
       >
         {formatTime(displaySeconds)}
       </div>
 
+      {/* Sync Indicator */}
+      {isPendingSync && (
+        <span className="text-xs text-gray-400 ml-1">⏳</span>
+      )}
+
       {/* Play/Pause Button */}
       <button
-        onClick={serverIsRunning ? handlePause : handleStart}
-        disabled={displaySeconds === 0 || startTimer.isPending || pauseTimer.isPending}
+        onClick={status === 'RUNNING' ? handlePause : handleStart}
+        disabled={displaySeconds === 0}
         className={cn(
           'p-2 rounded-lg transition-all active:scale-95',
-          serverIsRunning
+          status === 'RUNNING'
             ? 'bg-green-100 text-green-700 hover:bg-green-200'
             : 'bg-orange-100 text-orange-700 hover:bg-orange-200',
           displaySeconds === 0 && 'opacity-50 cursor-not-allowed'
         )}
-        aria-label={serverIsRunning ? 'Pause timer' : 'Start timer'}
+        aria-label={status === 'RUNNING' ? 'Pause timer' : 'Start timer'}
       >
-        {serverIsRunning ? <Pause size={18} /> : <Play size={18} />}
+        {status === 'RUNNING' ? <Pause size={18} /> : <Play size={18} />}
       </button>
 
       {/* Reset Button */}
       <button
         onClick={handleReset}
-        disabled={resetTimer.isPending}
-        className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all active:scale-95 disabled:opacity-50"
+        className="p-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all active:scale-95"
         aria-label="Reset timer to 10:00"
       >
         <RotateCcw size={18} />
       </button>
+
+      {/* Next Period Button - Only shown at 0:00 */}
+      {canAdvancePeriod && (
+        <button
+          onClick={handleNextPeriod}
+          className="px-3 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-all active:scale-95 flex items-center gap-1 text-sm font-semibold"
+          aria-label="Advance to next period"
+        >
+          Next Period
+          <ChevronRight size={16} />
+        </button>
+      )}
     </div>
   )
 }
