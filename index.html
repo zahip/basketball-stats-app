@@ -124,6 +124,8 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DEF=['צחי','עומר','אלון','בן שך','גרופי','עמית','רועי','יובל','פישמן','עידן','שלום','רז','איתי','בן גל','חן'];
 const DK='bets-draft-v1';
+const NT='https://ntfy.sh/',TOP='shlashot-1379e238c69c763f',TB=TOP+'-b',TI=TOP+'-in',VIEW_URL='https://raw.githack.com/zahip/basketball-stats-app/shlashot/live.html';
+let sent=false,sending=false;
 const ld=()=>{try{return JSON.parse(localStorage.getItem(DK))||{}}catch(e){return{}}};
 const sv=()=>{try{localStorage.setItem(DK,JSON.stringify({pick,name:$('#name').value}))}catch(e){}};
 let db=null,user=null,uid=null,canW=null,isOwn=false,ro=false,mode='boot',loaded=false,busy=false;
@@ -167,6 +169,10 @@ function renderActions(){
   const P=players(),full=pick.length===P.length,nm=$('#name').value.trim(),ok=full&&nm,L=meta.locked&&!isOwn;
   const direct=db&&uid&&canW!==false&&!ro,m=mine();
   if(L){$('#actions').innerHTML='';$('#formNote').className='note bad';$('#formNote').textContent=m?'ההימורים נעולים. ההימור שלך בטבלה.':'ההימורים נעולים — כבר לא ניתן להמר.';return}
+  if(mode==='off'){
+    $('#actions').innerHTML=`<div class="acts"><button class="pri" id="sendB" ${ok&&!sending?'':'disabled'}>${sent?'עדכן הימור':'שלח הימור'}</button><a class="wa" id="waB" target="_blank" rel="noopener" aria-disabled="${!ok}" href="https://wa.me/?text=${encodeURIComponent(ok?betText(nm):'')}">או בוואטסאפ</a></div>`;
+    const fn=$('#formNote');fn.className=sent?'note good':'note';
+    fn.innerHTML=sent?`ההימור נקלט! אפשר לשנות ולשלוח שוב עד שההימורים ננעלים. <a href="${VIEW_URL}" target="_blank" rel="noopener">לטבלה בלייב</a>`:!full?`עוד ${P.length-pick.length} שחקנים לדרג.`:!nm?'רק השם שלך חסר.':'מוכן לשליחה.';return}
   $('#actions').innerHTML=`<div class="acts">${direct?`<button class="pri" id="saveB" ${ok&&!busy?'':'disabled'}>${m?'עדכן הימור':'שמור הימור'}</button>`:''}<a class="wa" id="waB" target="_blank" rel="noopener" aria-disabled="${!ok}" href="https://wa.me/?text=${encodeURIComponent(ok?betText(nm):'')}">שלח בוואטסאפ${direct?'':' למארגן'}</a><button id="cpB" ${ok?'':'disabled'}>העתק</button></div>`;
   const fn=$('#formNote');
   if(!full){fn.className='note';fn.textContent=`עוד ${P.length-pick.length} שחקנים לדרג.`}
@@ -176,7 +182,7 @@ function renderActions(){
   else{fn.className='note';fn.textContent=mode==='load'?'מתחבר לטבלה…':'שלחו את ההודעה למארגן בוואטסאפ, והוא יכניס אותה לטבלה.'}}
 function renderBoard(){
   const res=results(),reveal=meta.locked||res||isOwn;
-  if(mode==='off'){$('#stats').innerHTML='';$('#board').innerHTML='<p class="empty">הטבלה המשותפת לא זמינה בתצוגה הזאת. ההימור שלכם יגיע למארגן בוואטסאפ.</p>';return}
+  if(mode==='off'){$('#stats').innerHTML='';$('#board').innerHTML=`<p class="empty">טבלת ההימורים מתעדכנת בלייב אחרי כל סיבוב בתחרות.</p><div class="acts"><a class="wa" style="background:var(--ink)" href="${VIEW_URL}" target="_blank" rel="noopener">לתחרות ולטבלה בלייב</a></div>`;return}
   if(!loaded){$('#board').innerHTML=`<p class="empty">${mode==='slow'?'לא מצליח להגיע לטבלה כרגע. אפשר לשלוח את ההימור בוואטסאפ.':'טוען…'}</p>`;return}
   const rows=bets.map(b=>({...b,sc:res?scoreBet(b.order,res):null}));
   rows.sort(res?(a,b)=>b.sc.t-a.sc.t||b.sc.ex-a.sc.ex:(a,b)=>(a.ts||0)-(b.ts||0));
@@ -205,6 +211,9 @@ async function saveMine(){
   catch(e){if(e&&(e.code==='invalid_argument'||e.code==='revoked'||e.code==='not_granted')){ro=true;toast('אין לך הרשאת שמירה כאן — שלחו בוואטסאפ')}else toast(e&&e.code==='quota_exceeded'?'הטבלה מלאה':'השמירה נכשלה, נסו שוב')}
   busy=false;renderActions()}
 
+async function sendBet(){const nm=$('#name').value.trim();if(!nm||pick.length!==players().length||sending)return;sending=true;renderActions();
+  try{const r=await fetch(NT+TI,{method:'POST',body:JSON.stringify({name:nm,order:pick.slice(),ts:Date.now()})});if(!r.ok)throw r.status;sent=true;try{localStorage.setItem(DK+'-sent','1')}catch(e){}toast('ההימור נשלח!')}
+  catch(e){toast(e===429?'יותר מדי ניסיונות — נסו שוב בעוד דקה':'השליחה נכשלה — נסו שוב, או שלחו בוואטסאפ')}sending=false;renderActions()}
 /* ---------- events ---------- */
 document.addEventListener('click',e=>{
   const t=e.target.closest('button,a');if(!t||t.closest('#sheet'))return;const d=t.dataset,P=players();
@@ -216,6 +225,7 @@ document.addEventListener('click',e=>{
   else if(t.id==='rnd'){const r=P.filter(n=>!pick.includes(n));for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}pick=pick.concat(r);sv();renderLadder();renderActions()}
   else if(t.id==='clr'){pick=[];sv();renderLadder();renderActions()}
   else if(t.id==='saveB')saveMine();
+  else if(t.id==='sendB')sendBet();
   else if(t.id==='cpB')copy(betText($('#name').value.trim()));
   else if(t.id==='lockB')setMeta({locked:!meta.locked}).then(ok=>ok&&toast(meta.locked?'ההימורים ננעלו':'ההימורים נפתחו'));
   else if(t.id==='resSave'){const{out,bad}=parseList($('#resT').value);if(out.length<2)return toast('לא זיהיתי שמות ברשימה');
@@ -235,7 +245,9 @@ render();
 (async()=>{
   try{if(!window.claude||!window.claude.use)throw 0;[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')])}catch(e){}
   if(user){try{uid=await user.id();isOwn=!!(await user.isOwner());canW=await user.can('data.write')}catch(e){}}
-  if(!db){mode='off';render();return}
+  if(!db){mode='off';try{sent=localStorage.getItem(DK+'-sent')==='1'}catch(e){}render();
+    try{const r=await fetch(NT+TB+'/json?poll=1&since=latest');if(r.ok){const ls=(await r.text()).trim().split('\n').filter(Boolean);const m=ls.length?JSON.parse(ls[ls.length-1]):null;if(m&&m.event==='message'){const d=JSON.parse(m.message);if(Array.isArray(d.n)&&d.n.length>1)meta.players=d.n;meta.locked=!!d.lk;render()}}}catch(e){}
+    return}
   mode='load';render();
   const tm=setTimeout(()=>{if(!loaded){mode='slow';render()}},10000);
   const fail=()=>{clearTimeout(tm);if(!loaded){mode='slow';render()}};

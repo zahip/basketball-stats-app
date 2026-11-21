@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>שלשות · לייב</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: courtside scorer's table — loud, quick, readable from a meter away
+   IDEA: the hardwood floor itself; the five racks drawn on a half court
+   PICTURE: a top-down half court with every ball of the rack, filling as shots fall
+   COLOUR and TYPE: maple wood ground, painted-key red, ball orange; Karantina numerals, Rubik text
+   LAYOUT: one column for a phone in hand; sticky tabs; full-screen shooting mode */
+:root{color-scheme:light dark;
+--bg:light-dark(#f1dbb3,#1c130c);--wood2:light-dark(#e8cc9b,#26190f);--card:light-dark(#fbf1de,#2c1e13);
+--ink:light-dark(#22160c,#f6e9d6);--mut:light-dark(#6b543d,#bba68b);--line:light-dark(#22160c26,#f6e9d624);
+--paint:light-dark(#c41f2e,#e2434f);--ball:#f2681c;--ballDk:#a8410a;--gold:light-dark(#b07c09,#f0c14b)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg) repeating-linear-gradient(90deg,transparent 0 54px,var(--line) 54px 55px);color:var(--ink);font:16px/1.5 Rubik,system-ui,sans-serif;overflow-x:clip;-webkit-tap-highlight-color:transparent}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:14px;min-height:44px;padding:0 16px;background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--ball);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.pri{background:var(--ball);color:#fff;box-shadow:0 3px 0 var(--ballDk);font-weight:700}
+.dk{background:var(--ink);color:var(--bg);box-shadow:none;font-weight:700}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--ink);padding:10px max(4vw,14px) 0}
+.brand{display:flex;align-items:center;gap:10px}.brand b{font:700 34px/1 Karantina,sans-serif}.brand span{color:var(--mut);font-size:14px}
+nav{display:flex;gap:4px;overflow-x:auto;margin-top:6px}
+nav button{background:none;box-shadow:none;border-radius:10px 10px 0 0;font-weight:500;color:var(--mut);flex:none}
+nav button.on{background:var(--ink);color:var(--bg)}
+nav[hidden]{display:none}
+main{max-width:760px;margin:0 auto;padding:18px max(4vw,14px) 60px}
+h1{font:700 clamp(40px,9vw,56px)/1 Karantina,sans-serif;margin:0 0 4px;text-wrap:balance}
+h2{font:700 30px/1.05 Karantina,sans-serif;margin:26px 0 10px}
+.sub{color:var(--mut);margin:0 0 14px}
+.card{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 1px 0 var(--line),inset 0 0 0 1.5px var(--line)}
+.court svg{display:block;width:100%;height:auto;max-height:36vh;margin:0 auto}
+.cl{fill:none;stroke:var(--ink);stroke-opacity:.5;stroke-width:2}
+.floor{fill:var(--wood2)}
+.paint{fill:var(--paint);fill-opacity:.9;stroke:var(--ink);stroke-opacity:.5;stroke-width:2}
+.rim{fill:none;stroke:var(--ball);stroke-width:3}
+.b{fill:var(--card);stroke:var(--ink);stroke-opacity:.55;stroke-width:1.5;transition:fill .15s}
+.b.mb{stroke:var(--paint);stroke-opacity:1;stroke-width:3}
+.b.in{fill:var(--ball);stroke:var(--ballDk);stroke-opacity:1}
+.b.mb.in{stroke:var(--paint)}
+.b.out{fill:var(--ink);fill-opacity:.16;stroke-opacity:.2}
+.b.now{stroke:var(--ball);stroke-width:3.5;stroke-opacity:1}
+.spot{fill:var(--ink)}.spot.on{fill:var(--ball)}.spot.in{fill:var(--ball)}.spot.out{fill:var(--mut)}
+.st{fill:var(--bg);font:700 13px Rubik,sans-serif;text-anchor:middle;dominant-baseline:central}
+.lab{fill:var(--ink);font:500 12px Rubik,sans-serif;dominant-baseline:central}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 0;padding:0;list-style:none}
+.rules li{background:var(--bg);border-radius:99px;padding:4px 12px;font-size:14px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.rules li b{color:var(--paint)}
+.order{counter-reset:o;list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.order li{counter-increment:o;background:var(--card);border-radius:12px;padding:8px 12px;display:flex;gap:10px;align-items:center;box-shadow:inset 0 0 0 1.5px var(--line)}
+.order li::before{content:counter(o);font:700 24px/1 Karantina,sans-serif;color:var(--ball);min-width:1.2em}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.acts>*{flex:1 1 140px}
+.big{min-height:60px;font-size:19px}
+.deck{display:grid;gap:4px;text-align:center;padding:20px 16px;background:var(--ink);color:var(--bg);box-shadow:none}
+.deck .who{font:700 clamp(58px,16vw,86px)/.95 Karantina,sans-serif}
+.deck .lbl,.deck .then{opacity:.75;font-size:15px}
+.deck .tgt{font-weight:500;color:var(--ball)}
+.deck button:not(.pri){background:transparent;box-shadow:inset 0 0 0 1.5px currentColor;color:var(--bg)}
+.chips{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+.chips button{min-width:44px;padding:0 10px}.chips button.on{background:var(--paint);color:#fff;box-shadow:none}
+.deck .chips button{color:var(--bg);background:transparent;box-shadow:inset 0 0 0 1.5px currentColor}.deck .chips button.on{background:var(--paint);box-shadow:none}
+.board{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:34px minmax(0,1fr) 92px 46px;align-items:center;gap:10px;width:100%;text-align:start;padding:6px 12px;border-radius:12px}
+.row .rk{font:700 26px/1 Karantina,sans-serif;color:var(--mut)}
+.row .nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm small{color:var(--mut);font-weight:400;margin-inline-start:6px}
+.row .bar{height:8px;background:var(--line);border-radius:9px;overflow:hidden}.row .bar i{display:block;height:100%;background:var(--ball);border-radius:9px}
+.row .sc{font:700 30px/1 Karantina,sans-serif;text-align:end}
+.row.q{box-shadow:inset 0 0 0 2px var(--ball)}.row.q .rk{color:var(--ball)}
+.row.tie{box-shadow:inset 0 0 0 2px var(--paint)}
+.cut{display:flex;align-items:center;gap:8px;color:var(--paint);font-size:13px;font-weight:700}.cut::before,.cut::after{content:"";flex:1;border-top:2px dashed currentColor}
+.wait{color:var(--mut);font-size:15px}
+details{margin-top:18px}summary{cursor:pointer;font-weight:500;min-height:44px;display:flex;align-items:center}
+.set{display:grid;gap:10px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.field input[type=number],select{width:96px;min-height:44px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg);padding:0 10px;font-size:16px}
+.tg{width:56px;height:32px;border-radius:99px;position:relative;padding:0;min-height:32px;background:var(--line);box-shadow:none;flex:none}
+.tg::after{content:"";position:absolute;top:4px;inset-inline-start:4px;width:24px;height:24px;border-radius:50%;background:var(--card);transition:inset-inline-start .15s}
+.tg.on{background:var(--ball)}.tg.on::after{inset-inline-start:28px}
+.pl{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}.pl span{flex:1}.pl.off span{color:var(--mut);text-decoration:line-through}
+.add{display:flex;gap:8px;margin-top:10px}.add input{flex:1;min-height:44px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);padding:0 12px;font-size:16px}
+/* shooting mode */
+.shoot{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;gap:8px;padding:max(10px,env(safe-area-inset-top)) max(4vw,12px) max(10px,env(safe-area-inset-bottom));overflow-y:auto;max-width:760px;margin:0 auto}
+.shoot[hidden],.modal[hidden],.cd[hidden]{display:none}
+.sh-top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.sh-stage{color:var(--mut);font-size:14px}.sh-name{font:700 clamp(38px,10vw,52px)/1 Karantina,sans-serif}
+.sh-score{text-align:end}.sh-score span{font:700 64px/.85 Karantina,sans-serif;color:var(--ball)}.sh-score small{display:block;color:var(--mut);font-size:13px}
+.sh-timer{display:flex;align-items:center;gap:12px}
+.tnum{font:700 clamp(76px,22vw,112px)/.8 Karantina,sans-serif;min-width:1.5em;text-align:center;font-variant-numeric:tabular-nums}
+.tnum.low{color:var(--paint);animation:beat 1s infinite}
+.tbox{flex:1;display:grid;gap:6px}.tbar{height:14px;border-radius:9px;background:var(--line);overflow:hidden}.tbar i{display:block;height:100%;background:var(--ink);border-radius:9px;transition:width .1s linear}
+.tnum.low+.tbox .tbar i{background:var(--paint)}
+.sh-where{font-weight:500;text-align:center;min-height:24px}.sh-where b{color:var(--paint)}
+.hot{color:var(--ball);font-weight:800}
+.sh-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sh-btns button{min-height:clamp(84px,14vh,120px);font:700 34px/1 Karantina,sans-serif;border-radius:20px}
+.sh-btns small{font:500 16px Rubik,sans-serif;display:block;margin-top:4px;opacity:.85}
+.bonus{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.bn{background:var(--card);border-radius:14px;padding:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.bn>div{grid-column:1/-1;display:flex;justify-content:space-between;font-size:14px}.bn>div span{color:var(--paint);font-weight:700}
+.bn button{min-height:44px;padding:0 6px;font-size:15px}.bn button[data-v="1"]{background:var(--ball);color:#fff;box-shadow:none}
+.bn em{grid-column:1/-1;font-style:normal;text-align:center;font-weight:700;padding:10px 0}.bn.y{box-shadow:inset 0 0 0 2px var(--ball)}.bn.y em{color:var(--ball)}.bn.n em{color:var(--mut)}
+.sh-foot{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-top:auto}
+.banner{background:var(--paint);color:#fff;text-align:center;border-radius:12px;padding:8px;font-weight:700}
+.cd{position:absolute;inset:0;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 88%,transparent);font:700 min(46vw,260px)/1 Karantina,sans-serif;color:var(--ball);z-index:3}
+/* modal */
+.modal{position:fixed;inset:0;z-index:40;background:#0009;display:grid;place-items:end center;padding:12px}
+.sheet{background:var(--bg);border-radius:22px;padding:20px;width:min(560px,100%);max-height:88vh;overflow-y:auto}
+.sheet h3{font:700 38px/1 Karantina,sans-serif;margin:0 0 8px}
+.mbtns{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}.mbtns button{flex:1 1 120px}
+.dots{display:flex;gap:4px}.d{width:14px;height:14px;border-radius:50%;background:var(--line)}.d.y{background:var(--ball)}.d.m{box-shadow:0 0 0 2px var(--paint)}
+.brk{display:grid;gap:6px;margin:10px 0}.brk div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+textarea{width:100%;min-height:160px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);padding:10px;font:14px/1.5 Rubik,sans-serif;color:var(--ink)}
+/* champion */
+.podium{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:8px;margin:18px 0 6px}
+.pd{text-align:center}.pd .n{font:700 clamp(26px,7vw,38px)/1 Karantina,sans-serif;overflow-wrap:anywhere}.pd .s{color:var(--mut);font-size:14px}
+.pd .blk{margin-top:6px;border-radius:12px 12px 0 0;background:var(--ink);color:var(--bg);font:700 44px/1 Karantina,sans-serif;display:grid;place-items:center}
+.pd.p1 .blk{height:130px;background:var(--ball);color:#fff}.pd.p2 .blk{height:94px}.pd.p3 .blk{height:70px}
+.fun{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.fun div{background:var(--card);border-radius:14px;padding:12px;box-shadow:inset 0 0 0 1.5px var(--line)}.fun small{color:var(--mut);display:block;font-size:13px}.fun b{font:700 28px/1.05 Karantina,sans-serif;display:block}
+.tbl{width:100%;border-collapse:collapse;font-size:15px}.tbl th,.tbl td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:start}.tbl td.n,.tbl th.n{text-align:end;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+a.btn{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:14px;background:#1f9e55;color:#fff;font-weight:700;text-decoration:none}
+#toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:max-content;max-width:90vw;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+#conf{position:fixed;inset:0;pointer-events:none;z-index:45;width:100%;height:100%}
+.empty{color:var(--mut);text-align:center;padding:20px}
+div.row{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
+.livedot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--paint);margin-inline-end:6px;animation:beat 1.4s infinite}
+@keyframes beat{50%{transform:scale(1.08)}}
+@media (prefers-reduced-motion:reduce){.tnum.low{animation:none}*{transition:none!important}}
+@media(max-width:600px){.row{grid-template-columns:28px minmax(0,1fr) 54px 40px;gap:8px;padding:6px 8px}.sh-foot{grid-template-columns:1fr 1fr}.sh-foot #bSave{grid-column:1/-1}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="#f2681c" stroke="#7a2e05" stroke-width="2"/><path d="M2 15h26M15 2v26M6 6c5 4 5 14 0 18M24 6c-5 4-5 14 0 18" fill="none" stroke="#7a2e05" stroke-width="1.6"/></svg><b>שלשות</b><span>תחרות הליגה של הקבוצה</span></div>
+  <nav id="tabs"><button data-t="game">תחרות</button><button data-t="bets">הימורים</button><button data-t="players">שחקנים</button><button data-t="season">עונה</button></nav>
+</header>
+<main id="view"></main>
+
+<section class="shoot" id="shoot" hidden aria-label="סיבוב זריקה">
+  <div class="sh-top"><div><div class="sh-stage" id="shStage"></div><div class="sh-name" id="shName"></div></div><div class="sh-score"><span id="shScore">0</span><small id="shTgt"></small></div></div>
+  <div class="sh-timer"><div class="tnum" id="tNum">90</div><div class="tbox"><div class="tbar"><i id="tBar"></i></div><div id="shHot" class="sh-stage"></div></div></div>
+  <div id="shBanner"></div>
+  <div class="court" id="shCourt"></div>
+  <div class="sh-where" id="shWhere"></div>
+  <div class="sh-btns"><button class="pri" id="bMake">נכנס</button><button class="dk" id="bMiss">החטיא<small>0</small></button></div>
+  <div class="bonus" id="shBonus"></div>
+  <div class="sh-foot"><button id="bUndo">בטל אחרון</button><button id="bAbort">יציאה</button><button class="pri" id="bSave">סיים עכשיו</button></div>
+  <div class="cd" id="cd" hidden></div>
+</section>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status"></div>
+<canvas id="conf"></canvas>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DEF=['צחי','עומר','אלון','בן שך','גרופי','עמית','רועי','יובל','פישמן','עידן','שלום','רז','איתי','בן גל','חן'];
+const KEY='shootout-v1',SKEY='shootout-season-v1';
+const load=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const store=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+const fresh=(old,keepBets)=>({players:old?old.players:DEF.map(n=>({n,on:true})),cfg:old?old.cfg:{sec:90,every:10,last5:true,fin:3,money:false,voice:true,sound:true},order:old?old.order:DEF.slice(),stages:[],qual:[],podium:null,tab:'game',bets:old&&keepBets?old.bets||[]:[]});
+let S=load(KEY,null)||fresh();
+if(!Array.isArray(S.bets))S.bets=[];
+let season=load(SKEY,[]);
+const save=()=>{store(KEY,S);pushLive()};
+let R=null,moneyPick=4;
+let SYNC=false,REMOTE=null,roundBase=0,remoteRev=0,lastSKey='',lastBKey='',lastCurKey='',lastCurPub=0,pubT=null,pubBusy=false,netOk=true;
+const NT='https://ntfy.sh/',TOP='shlashot-1379e238c69c763f',TS=TOP+'-s',TB=TOP+'-b',TI=TOP+'-in',MKEY='manage-6e88fd6cd1';
+const VIEW_URL='https://raw.githack.com/zahip/basketball-stats-app/shlashot/live.html';
+const ME=(()=>{try{let d=localStorage.getItem('shootout-dev');if(!d){d=Math.random().toString(36).slice(2);localStorage.setItem('shootout-dev',d)}return d}catch(e){return Math.random().toString(36).slice(2)}})();
+const FORM_URL='https://raw.githack.com/zahip/basketball-stats-app/shlashot/index.html';
+
+/* ---------- scoring ---------- */
+const val=(m,i)=>(m===Math.floor(i/5)||i%5===4)?2:1;
+const score=r=>r.balls.reduce((s,b,i)=>s+(b===1?val(r.money,i):0),0)+(r.b3===1?3:0)+(r.b5===1?5:0);
+const maxScore=m=>score({balls:Array(25).fill(1),b3:1,b5:1,money:m});
+const streakMax=b=>{let m=0,c=0;b.forEach(x=>{c=x===1?c+1:0;m=Math.max(m,c)});return m};
+const stg=()=>S.stages[S.stages.length-1];
+const nextUp=st=>st.order.filter(n=>!st.res[n]);
+const ranked=st=>Object.entries(st.res).map(([n,r])=>({n,s:r.s,r})).sort((a,b)=>b.s-a.s);
+const present=()=>{const on=S.players.filter(p=>p.on).map(p=>p.n);return S.order.filter(n=>on.includes(n)).concat(on.filter(n=>!S.order.includes(n)))};
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const qualOf=n=>S.stages[0]&&S.stages[0].res[n]?S.stages[0].res[n].s:0;
+const isQual=st=>st.kind==='q'||st.kind==='soq';
+
+/* ---------- sound & voice ---------- */
+let AC=null,heVoice=null,voicesLoaded=false;
+const ac=()=>{if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume().catch(()=>{});return AC};
+function tone(f,d=.12,type='sine',v=.22,when=0){if(!S.cfg.sound)return;const a=ac();if(!a)return;try{const o=a.createOscillator(),g=a.createGain(),t=a.currentTime+when;o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(a.destination);o.start(t);o.stop(t+d+.03)}catch(e){}}
+const sfx={make:()=>{tone(784,.09);tone(1175,.12,'sine',.2,.07)},money:()=>{tone(784,.08);tone(1175,.08,'sine',.2,.07);tone(1568,.16,'sine',.2,.14)},miss:()=>tone(180,.12,'triangle',.25),buzz:()=>{tone(150,.9,'sawtooth',.28);tone(152,.9,'square',.12)},hot:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.12,'square',.08,i*.07))};
+function pickVoice(){try{const vs=speechSynthesis.getVoices();voicesLoaded=vs.length>0;heVoice=vs.find(v=>/^(he|iw)/i.test(v.lang))||null}catch(e){}}
+if('speechSynthesis' in window){pickVoice();try{speechSynthesis.onvoiceschanged=pickVoice}catch(e){}}
+function say(t,cut=true){if(!S.cfg.voice||!('speechSynthesis' in window))return;try{if(cut)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='he-IL';if(heVoice)u.voice=heVoice;u.rate=1.08;speechSynthesis.speak(u)}catch(e){}}
+let lock=null;async function wake(on){try{if(on&&navigator.wakeLock)lock=await navigator.wakeLock.request('screen');else if(lock){lock.release();lock=null}}catch(e){}}
+
+/* ---------- UI helpers ---------- */
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2200)}
+function modal(html,btns){const sh=$('#sheet');sh.innerHTML=html+'<div class="mbtns">'+btns.map((b,i)=>`<button data-i="${i}" class="${b.c||''}">${b.t}</button>`).join('')+'</div>';$('#modal').hidden=false;sh.onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;const f=btns[+b.dataset.i].f;closeM();f&&f()}}
+const closeM=()=>{$('#modal').hidden=true};
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('הועתק'),()=>modal(`<h3>העתקה ידנית</h3><textarea readonly>${esc(t)}</textarea>`,[{t:'סגור'}]))}
+function confetti(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;const c=$('#conf'),x=c.getContext('2d');c.width=innerWidth;c.height=innerHeight;const cols=['#f2681c','#c41f2e','#f0c14b','#fbf1de','#22160c'];const P=Array.from({length:160},()=>({x:Math.random()*c.width,y:-20-Math.random()*c.height*.5,v:2+Math.random()*4,s:5+Math.random()*7,r:Math.random()*6,w:Math.random()*.2-.1,c:cols[Math.floor(Math.random()*5)]}));let f=0;(function an(){x.clearRect(0,0,c.width,c.height);P.forEach(p=>{p.y+=p.v;p.x+=Math.sin((p.y+p.r*40)/40);p.r+=p.w;x.save();x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);x.restore()});if(++f<260)requestAnimationFrame(an);else x.clearRect(0,0,c.width,c.height)})()}
+
+/* ---------- court drawing ---------- */
+const ANG=[10,50,90,130,170],BX=200,BY=28,RR=150;
+function courtSVG(r){
+  const money=r?r.money:(S.cfg.money?moneyPick:null);
+  const ni=r?r.balls.indexOf(null):-1,cs=ni<0?-1:Math.floor(ni/5);
+  let g=`<svg viewBox="0 0 400 314" role="img" aria-label="מפת העמדות במגרש"><rect class="floor" x="2" y="2" width="396" height="310" rx="6"/><rect class="cl" x="4" y="4" width="392" height="306"/><rect class="paint" x="152" y="4" width="96" height="128"/><path class="cl" d="M164 132A36 36 0 0 0 236 132"/><path class="cl" d="M350 4V28A150 150 0 0 1 50 28V4"/><path class="cl" d="M4 310H396M160 310A40 40 0 0 1 240 310" /><path d="M180 14H220" stroke="currentColor" stroke-width="3" style="color:var(--ink)"/><circle class="rim" cx="200" cy="26" r="7"/>`;
+  ANG.forEach((a,s)=>{const t=a*Math.PI/180,c=Math.cos(t),n=Math.sin(t),px=BX+RR*c,py=BY+RR*n;
+    for(let j=0;j<5;j++){const i=s*5+j,bx=px+c*26+(-n)*(j-2)*15,by=py+n*26+c*(j-2)*15,st=r?r.balls[i]:null;
+      g+=`<circle class="b${val(money,i)===2?' mb':''}${st===1?' in':st===0?' out':''}${i===ni?' now':''}" cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="${val(money,i)===2?7.5:6.5}"/>`}
+    g+=`<circle class="spot${s===cs?' on':''}" cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="11"/><text class="st" x="${px.toFixed(1)}" y="${py.toFixed(1)}">${s+1}</text>`});
+  [['b3',248,'¾','שלושת רבע · 3'],['b5',290,'½','חצי מגרש · 5']].forEach(([k,y,l,t])=>{const v=r?r[k]:null;g+=`<circle class="spot${v===1?' in':v===0?' out':''}" cx="200" cy="${y}" r="12"/><text class="st" x="200" y="${y}">${l}</text><text class="lab" x="218" y="${y}" text-anchor="end" direction="rtl">${t}</text>`});
+  return g+'</svg>'}
+
+/* ---------- views ---------- */
+function render(){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));const v=$('#view'),keep=$('#betT')?$('#betT').value:'';v.innerHTML=S.tab==='players'?viewPlayers():S.tab==='season'?viewSeason():S.tab==='bets'?viewBets():viewGame();if(keep&&$('#betT'))$('#betT').value=keep;save()}
+function viewGame(){
+  if(!S.stages.length){const p=present();
+    return `<h1>ערב שלשות</h1><p class="sub">${new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'})} · ${p.length} משתתפים</p>
+    <div class="card"><div class="court">${courtSVG(null)}</div><ul class="rules"><li><b>5</b> עמדות × <b>5</b> כדורים</li><li>כדור אחרון בעמדה = <b>2</b></li><li>שלושת רבע = <b>3</b></li><li>חצי מגרש = <b>5</b></li><li><b>${S.cfg.sec}</b> שניות לסיבוב</li><li><b>${S.cfg.fin}</b> ראשונים לגמר</li>${S.cfg.money?'<li>עמדת כסף: כל הכדורים = <b>2</b></li>':''}<li>מקסימום <b>${maxScore(S.cfg.money?0:null)}</b></li></ul></div>
+    <h2>סדר הזריקה</h2>${p.length?`<ol class="order" id="ord">${p.map(n=>`<li>${esc(n)}</li>`).join('')}</ol>`:'<p class="empty">אין משתתפים. הוסיפו בלשונית שחקנים.</p>'}
+    <div class="acts"><button id="draw" class="big">הגרל סדר</button><button id="start" class="pri big" ${p.length?'':'disabled'}>התחל תחרות</button></div>`}
+  if(S.podium)return viewChamp();
+  const st=stg(),up=nextUp(st),done=Object.keys(st.res).length,r=ranked(st);
+  let tgt='';
+  if(isQual(st)){const k=st.spots;tgt=r.length<k?`כרגע כל תוצאה נכנסת ל־${k} הראשונים`:`יעד: ${r[k-1].s+1} לעלייה ישירה · ${r[k-1].s} לשוויון`}
+  else tgt=r.length?`יעד לאליפות: ${r[0].s+1}`:'פותח את הגמר';
+  let h=`<h1>${st.title}</h1><p class="sub">${done} מתוך ${st.order.length} זרקו${isQual(st)?` · ${st.spots} עולים לגמר`:''}</p>`;
+  if(up[0])h+=`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(up[0])}</div><div class="then">${up.length>1?'אחריו: '+up.slice(1,3).map(esc).join(' · '):'אחרון בשלב'}</div><div class="tgt">${tgt}</div>
+    ${S.cfg.money?`<div class="then">עמדת הכסף שלו</div><div class="chips" id="mchips">${[0,1,2,3,4].map(i=>`<button data-m="${i}" class="${i===moneyPick?'on':''}">${i+1}</button>`).join('')}</div>`:''}
+    ${otherCur()?`<div class="tgt" id="otherBusy">${esc(otherCur().n)} זורק עכשיו — מנהל אחר מנקד (${otherCur().s} נק')</div>`:''}
+    <div class="acts"><button class="pri big" id="go" ${otherCur()?'disabled':''}>התחל סיבוב</button><button id="skip">דלג לסוף התור</button></div></section>`;
+  h+=`<h2>טבלה</h2>`+board(st,r)+(up.length>1?`<p class="wait">ממתינים: ${up.slice(1).map(esc).join(' · ')}</p>`:'');
+  if(!isQual(st)||st.kind==='soq')h+=`<details><summary>תוצאות המוקדמות</summary>${board(S.stages[0],ranked(S.stages[0]),true)}</details>`;
+  if(S.bets.length)h+=`<h2>מובילים בהימורים</h2>${betRows(betBoard(),3)}<div class="acts"><button id="goBets">לכל טבלת ההימורים</button></div>`;
+  return h+`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`}
+function board(st,r,ro){
+  if(!r.length)return '<p class="empty">עוד אין תוצאות</p>';
+  const k=isQual(st)?st.spots:1,cut=r.length>=k?r[k-1].s:-1,mx=maxScore(S.cfg.money?0:null);
+  let h='<div class="board">',rank=0;
+  r.forEach((x,i)=>{if(i===0||x.s!==r[i-1].s)rank=i+1;const inQ=st.kind==='q'&&S.qual.includes(x.n);
+    const cls=x.s>cut||(x.s===cut&&r.filter(y=>y.s===cut).length+r.filter(y=>y.s>cut).length<=k)?'q':x.s===cut&&r.length>k?'tie':'';
+    h+=`<button class="row ${cls}" data-d="${S.stages.indexOf(st)}|${esc(x.n)}"><span class="rk">${rank}</span><span class="nm">${esc(x.n)}${inQ?'<small>בגמר</small>':''}${x.r.money!=null?`<small>כסף ${x.r.money+1}</small>`:''}</span><span class="bar"><i style="width:${Math.round(x.s/mx*100)}%"></i></span><span class="sc">${x.s}</span></button>`;
+    if(i===k-1&&r.length>k&&isQual(st))h+=`<div class="cut">קו הגמר</div>`});
+  return h+'</div>'}
+function viewChamp(){
+  const p=S.podium,fs=funStats(),lbl=['p1','p2','p3'],bl=betBoard()[0];
+  if(bl)fs.unshift({k:'אלוף ההימורים',n:bl.name,v:`${bl.t} נקודות`});
+  const pod=[1,0,2].filter(i=>p[i]).map(i=>`<div class="pd ${lbl[i]}"><div class="n">${esc(p[i].n)}</div><div class="s">${p[i].s} נק' בגמר</div><div class="blk">${i+1}</div></div>`).join('');
+  return `<h1>${esc(p[0].n)} אלוף השלשות</h1><p class="sub">${new Date().toLocaleDateString('he-IL')}</p><div class="podium">${pod}</div>
+  <h2>מספרי הערב</h2><div class="fun">${fs.map(f=>`<div><small>${f.k}</small><b>${esc(f.n)}</b>${f.v}</div>`).join('')}</div>
+  <h2>מוקדמות</h2>${board(S.stages[0],ranked(S.stages[0]),true)}
+  <div class="acts"><button id="cp" class="dk">העתק סיכום</button><a class="btn" id="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(shareText())}">שלח בוואטסאפ</a></div>
+  <div class="acts"><button id="cpRank">העתק דירוג לטופס ההימורים</button><button id="again" class="pri">תחרות חדשה</button></div>`}
+function viewPlayers(){
+  const c=S.cfg,running=S.stages.length&&!S.podium,tg=(k,l)=>`<div class="field"><span>${l}</span><button class="tg ${c[k]?'on':''}" data-tg="${k}" role="switch" aria-checked="${!!c[k]}" aria-label="${l}"></button></div>`;
+  return `<h1>שחקנים</h1><p class="sub">${running?'התחרות רצה — שינויים ייכנסו לתחרות הבאה.':'סמנו מי הגיע הערב.'}</p>
+  <div class="card">${S.players.map((p,i)=>`<div class="pl ${p.on?'':'off'}"><button class="tg ${p.on?'on':''}" data-on="${i}" role="switch" aria-checked="${p.on}" aria-label="${esc(p.n)} משתתף"></button><span>${esc(p.n)}</span><button data-rm="${i}" aria-label="הסר את ${esc(p.n)}">הסר</button></div>`).join('')}
+  <form class="add" id="addf"><input id="addn" placeholder="שם שחקן חדש" maxlength="20" autocomplete="off"><button class="pri">הוסף</button></form></div>
+  <h2>הגדרות</h2><div class="card set">
+  <div class="field"><span>שניות לסיבוב</span><input type="number" id="cSec" min="20" max="300" value="${c.sec}"></div>
+  <div class="field"><span>הקראה כל</span><select id="cEv">${[5,10,15,30].map(v=>`<option value="${v}" ${v===c.every?'selected':''}>${v} שניות</option>`).join('')}</select></div>
+  <div class="field"><span>עולים לגמר</span><input type="number" id="cFin" min="1" max="8" value="${c.fin}"></div>
+  ${tg('last5','ספירה לאחור ב־5 השניות האחרונות')}${tg('voice','הקראה בקול')}${tg('sound','צלילים')}${tg('money','עמדת כסף: כל שחקן בוחר עמדה שכל כדוריה שווים 2')}
+  <div class="field"><span class="wait">${!('speechSynthesis' in window)?'הדפדפן לא תומך בהקראה':heVoice?'קול עברי: '+esc(heVoice.name):voicesLoaded?'לא נמצא קול עברי במכשיר — יושמעו גם צפצופים':'בודק קולות…'}</span><button id="tVoice">בדיקת קול</button></div></div>`}
+function viewSeason(){
+  const A={};season.forEach(ev=>{ev.rounds.forEach(r=>{const a=A[r.n]||(A[r.n]={n:r.n,w:0,f:0,e:new Set(),q:[],b:0});if(r.k==='q')a.q.push(r.s);a.b=Math.max(a.b,r.s);a.e.add(ev.id)});ev.podium.forEach((n,i)=>{if(A[n]){A[n].f++;if(!i)A[n].w++}})});
+  const rows=Object.values(A).map(a=>({...a,avg:a.q.length?a.q.reduce((x,y)=>x+y,0)/a.q.length:0})).sort((x,y)=>y.w-x.w||y.f-x.f||y.avg-x.avg);
+  return `<h1>טבלת העונה</h1><p class="sub">${season.length} ערבי תחרות שמורים במכשיר הזה</p>
+  ${rows.length?`<div class="card scroll"><table class="tbl"><thead><tr><th>שחקן</th><th class="n">אליפויות</th><th class="n">גמרים</th><th class="n">ממוצע</th><th class="n">שיא</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${esc(a.n)}</td><td class="n">${a.w}</td><td class="n">${a.f}</td><td class="n">${a.avg.toFixed(1)}</td><td class="n">${a.b}</td></tr>`).join('')}</tbody></table></div>
+  <h2>ערבים</h2><div class="board">${season.map((e,i)=>`<div class="row" style="grid-template-columns:minmax(0,1fr) auto"><span class="nm">${esc(e.d)} · <b>${esc(e.podium[0]||'')}</b>${e.podium[1]?' · '+esc(e.podium[1]):''}${e.podium[2]?' · '+esc(e.podium[2]):''}</span><button data-del="${i}">מחק</button></div>`).join('')}</div>`:'<p class="empty card">אחרי הגמר הראשון הטבלה תתחיל להתמלא.</p>'}
+  <div class="acts"><button id="bak">העתק גיבוי</button><button id="rest">שחזור מגיבוי</button></div>`}
+
+/* ---------- flow ---------- */
+function startTour(){const p=present();if(!p.length)return;S.order=p.concat(S.order.filter(n=>!p.includes(n)));S.stages=[{kind:'q',title:'מוקדמות',order:p,res:{},spots:Math.min(S.cfg.fin,p.length)}];S.qual=[];S.podium=null;S.rec=false;render();say('התחרות מתחילה! ראשון על הקו: '+p[0])}
+function resolve(st){
+  const r=ranked(st);
+  if(isQual(st)){const k=st.spots,cut=r[k-1].s,above=r.filter(x=>x.s>cut).map(x=>x.n),tied=r.filter(x=>x.s===cut).map(x=>x.n);
+    if(above.length+tied.length===k){S.qual.push(...above,...tied);return openFinal()}
+    S.qual.push(...above);const sp=k-above.length;
+    S.stages.push({kind:'soq',title:'שוט־אוף על הגמר',order:shuffle(tied),res:{},spots:sp});render();
+    say(`שוויון! שוט אוף בין ${tied.join(', ')}`);
+    modal(`<h3>שוויון על קו הגמר</h3><p>${tied.map(esc).join(', ')} סיימו עם ${cut} נקודות.</p><p>שוט־אוף: סיבוב מלא, ${sp===1?'מקום אחד':sp+' מקומות'} בגמר.${above.length?` כבר בגמר: ${above.map(esc).join(', ')}.`:''}</p>`,[{t:'יאללה',c:'pri'}])}
+  else{const top=r[0].s,tied=r.filter(x=>x.s===top).map(x=>x.n);
+    if(tied.length>1){S.stages.push({kind:'sof',title:'שוט־אוף על האליפות',order:tied,res:{},spots:1});render();say('שוויון בצמרת! שוט אוף על האליפות');modal(`<h3>שוויון בצמרת</h3><p>${tied.map(esc).join(' ו־')} סיימו עם ${top}. סיבוב מלא נוסף יכריע.</p>`,[{t:'יאללה',c:'pri'}])}
+    else finish(r[0].n)}}
+function openFinal(){
+  const order=S.qual.slice().sort((a,b)=>qualOf(a)-qualOf(b));
+  S.stages.push({kind:'f',title:'גמר',order,res:{},spots:1});render();
+  say('העולים לגמר: '+order.slice().reverse().join(', '));
+  modal(`<h3>העולים לגמר</h3><div class="board">${order.slice().reverse().map((n,i)=>`<div class="row q"><span class="rk">${i+1}</span><span class="nm">${esc(n)}</span><span></span><span class="sc">${qualOf(n)}</span></div>`).join('')}</div><p class="wait">בגמר מתחילים מאפס. סדר הזריקה: מהנמוך לגבוה — ${order.map(esc).join(' ← ')}.</p>`,[{t:'לגמר',c:'pri'}])}
+function finish(w){
+  const f=S.stages.find(s=>s.kind==='f'),last=stg(),fr=ranked(f);
+  const rest=fr.filter(x=>x.n!==w).sort((a,b)=>b.s-a.s||((last.res[b.n]||{}).s||0)-((last.res[a.n]||{}).s||0));
+  S.podium=[{n:w,s:f.res[w].s}].concat(rest.map(x=>({n:x.n,s:x.s})));
+  if(!S.rec){S.rec=true;season.unshift({id:Date.now(),d:new Date().toLocaleDateString('he-IL'),podium:S.podium.map(x=>x.n),rounds:S.stages.flatMap(st=>Object.entries(st.res).map(([n,r])=>({n,s:r.s,k:st.kind})))});store(SKEY,season)}
+  render();scrollTo(0,0);confetti();say(`והאלוף הוא… ${w}!`)}
+function fullRank(){const fin=S.podium.map(x=>x.n),q=ranked(S.stages[0]).map(x=>x.n).filter(n=>!fin.includes(n));return fin.concat(q)}
+function funStats(){
+  const all=S.stages.flatMap(st=>Object.entries(st.res).map(([n,r])=>({n,r})));if(!all.length)return[];
+  const best=all.reduce((a,b)=>b.r.s>a.r.s?b:a),hot=all.reduce((a,b)=>streakMax(b.r.balls)>streakMax(a.r.balls)?b:a);
+  const mc=x=>x.r.balls.filter((b,i)=>b&&val(x.r.money,i)===2).length,mon=all.reduce((a,b)=>mc(b)>mc(a)?b:a);
+  const bon={};all.forEach(x=>{bon[x.n]=(bon[x.n]||0)+(x.r.b3?3:0)+(x.r.b5?5:0)});const bk=Object.entries(bon).sort((a,b)=>b[1]-a[1])[0];
+  const stp=[0,1,2,3,4].map(s=>all.reduce((t,x)=>t+x.r.balls.slice(s*5,s*5+5).filter(Boolean).length,0)/(all.length*5));const bs=stp.indexOf(Math.max(...stp));
+  return[{k:'הסיבוב הכי גבוה',n:best.n,v:`${best.r.s} נקודות`},{k:'הרצף הכי חם',n:hot.n,v:`${streakMax(hot.r.balls)} ברצף`},{k:'מלך כדורי הכסף',n:mon.n,v:`${mc(mon)} כדורי כסף בסיבוב`},{k:'נקודות בונוס מרחוק',n:bk[1]?bk[0]:'אף אחד',v:bk[1]?`${bk[1]} נקודות`:'שלושת רבע וחצי נשארו בחוץ'},{k:'העמדה הכי חמה',n:`עמדה ${bs+1}`,v:`${Math.round(stp[bs]*100)}% קליעה`}]}
+function shareText(){
+  if(!S.podium)return '';const p=S.podium,m=['🏆','🥈','🥉'],q=ranked(S.stages[0]);
+  const bb=betBoard();
+  return [`🏀 תחרות שלשות · ${new Date().toLocaleDateString('he-IL')}`,'',...p.slice(0,3).map((x,i)=>`${m[i]} ${x.n} – ${x.s}`),'','מוקדמות:',...q.map((x,i)=>`${i+1}. ${x.n} – ${x.s}`),'',...funStats().map(f=>`${f.k}: ${f.n} (${f.v})`),...(bb.length?['','🎯 הימורים:',...bb.map((b,i)=>`${i+1}. ${b.name} – ${b.t}`)]:[])].join('\n')}
+
+/* ---------- bets ---------- */
+const nrm=s=>String(s).replace(/[‎‏"'׳״*_~]/g,'').replace(/\s+/g,' ').trim();
+function findP(raw){const s=nrm(raw).replace(/\s*[–\-:]\s*\d+\s*$/,'');const all=S.players.map(p=>p.n);return all.find(n=>nrm(n)===s)||all.find(n=>nrm(n).replace(/ /g,'')===s.replace(/ /g,''))||null}
+function parseBets(txt){const out=[];let cur=null;
+  txt.split('\n').forEach(l=>{const h=l.match(/הימור שלשות\s*[–\-:]\s*(.+?)\s*$/);if(h){cur={name:nrm(h[1]),order:[]};out.push(cur);return}
+    const m=l.match(/(?:^|\s)(\d{1,2})\s*[.)]\s*(.+?)\s*$/);if(cur&&m){const n=findP(m[2]);if(n&&!cur.order.includes(n))cur.order[+m[1]-1]=n}});
+  return out.map(b=>({name:b.name.slice(0,24),order:b.order.filter(Boolean)})).filter(b=>b.name&&b.order.length>=3)}
+function scoreBet(o,res){const ord=o.filter(n=>res.includes(n)),top=res.slice(0,3);let t=0,ex=0;
+  res.forEach((n,i)=>{const j=ord.indexOf(n);if(j<0)return;const d=Math.abs(i-j);if(!d){t+=3;ex++}else if(d===1)t+=1});
+  if(ord[0]&&ord[0]===res[0])t+=5;ord.slice(0,3).forEach(n=>{if(top.includes(n))t+=2});return{t,ex}}
+function currentRank(){
+  if(!S.stages.length)return[];if(S.podium)return fullRank();
+  const qr=ranked(S.stages[0]).map(x=>x.n),f=S.stages.find(s=>s.kind==='f');if(!f)return qr;
+  const fs=n=>f.res[n]?f.res[n].s:-1,fin=f.order.slice().sort((a,b)=>fs(b)-fs(a)||qualOf(b)-qualOf(a));
+  return fin.concat(qr.filter(n=>!fin.includes(n)))}
+function betBoard(){const res=currentRank();return S.bets.map(b=>({...b,...(res.length?scoreBet(b.order,res):{t:0,ex:0})})).sort((a,b)=>b.t-a.t||b.ex-a.ex)}
+function betRows(bb,lim){const top=bb[0]&&bb[0].t?bb[0].t:1;let rk=0;
+  return '<div class="board">'+bb.slice(0,lim||bb.length).map((b,i)=>{if(i===0||b.t!==bb[i-1].t)rk=i+1;
+    return `<button class="row${rk===1&&b.t>0?' q':''}" data-bet="${esc(b.name)}"><span class="rk">${rk}</span><span class="nm">${esc(b.name)}<small>אלוף: ${esc(b.order[0]||'—')}</small></span><span class="bar"><i style="width:${Math.round(b.t/top*100)}%"></i></span><span class="sc">${b.t}</span></button>`}).join('')+'</div>'}
+function betShare(){const bb=betBoard();return [`🎯 מצב ההימורים${S.podium?' – סופי':' – לייב'}`,...bb.map((b,i)=>`${i+1}. ${b.name} – ${b.t}`)].join('\n')}
+function viewBets(){
+  const bb=betBoard(),live=S.stages.length&&!S.podium;
+  return `<h1>הימורים</h1><p class="sub">${S.bets.length} מהמרים · ${S.podium?'תוצאה סופית':live?'מתעדכן אחרי כל סיבוב, לפי "אם התחרות הייתה נגמרת עכשיו"':'הנקודות יתחילו לזוז אחרי הסיבוב הראשון'}</p>
+  <ul class="rules" style="margin-bottom:14px"><li>מיקום מדויק <b>3</b></li><li>פספוס במקום אחד <b>1</b></li><li>אלוף נכון <b>+5</b></li><li>כל עולה לגמר נכון <b>+2</b></li></ul>
+  ${bb.length?betRows(bb)+`<div class="acts"><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(betShare())}">שלח מצב הימורים בוואטסאפ</a></div>`:'<p class="empty card">עוד אין הימורים. שלחו לחברים את הטופס, והדביקו כאן את מה שהם שולחים בוואטסאפ.</p>'}
+  <div class="acts"><button id="lockBets" class="${S.lockBets?'':'pri'}">${S.lockBets?'פתח הימורים מחדש':'נעל הימורים'}</button></div>
+  <h2>הוספת הימורים</h2><div class="card"><p class="wait" style="margin-top:0">הימורים שנשלחים מהטופס נכנסים לכאן לבד. הודעות שהגיעו בוואטסאפ — הדביקו כאן, אפשר כמה ביחד.</p><textarea id="betT" placeholder="🏀 הימור שלשות – דודו&#10;1. צחי&#10;2. עומר&#10;…"></textarea><div class="acts"><button class="pri" id="betAdd">הוסף הימורים</button></div></div>
+  <h2>קישורים</h2><div class="card"><p style="margin:0 0 4px"><b>לייב לכולם</b></p><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${VIEW_URL}</p><div class="acts"><button id="viewCp">העתק קישור לייב</button></div>
+  <p style="margin:14px 0 4px"><b>קישור מנהל</b> — רק למי שמותר לו לעדכן</p><div class="acts"><button id="mgrCp">העתק קישור מנהל</button></div></div>
+  <h2>הטופס לחברים</h2><div class="card"><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${FORM_URL}</p><div class="acts"><button id="formCp">העתק קישור</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('🏀 הימורי תחרות השלשות פתוחים! דרגו את כל המשתתפים:\n'+FORM_URL+'\n\n📺 התחרות בלייב:\n'+VIEW_URL)}">שלח לקבוצה</a></div></div>`}
+function betDetail(nm){
+  const b=S.bets.find(x=>x.name===nm);if(!b)return;const res=currentRank(),ord=res.length?b.order.filter(n=>res.includes(n)):b.order,sc=res.length?scoreBet(b.order,res):{t:0};
+  const rows=ord.map((n,i)=>{const a=res.indexOf(n),d=a<0?null:Math.abs(a-i);return `<tr${d===0?' style="color:var(--ball);font-weight:700"':''}><td class="n">${i+1}</td><td>${esc(n)}</td><td class="n">${a<0?'—':a+1}</td><td class="n">${d===0?3:d===1?1:0}</td></tr>`}).join('');
+  modal(`<h3>${esc(b.name)} · ${sc.t}</h3><div class="scroll"><table class="tbl"><thead><tr><th class="n">הימור</th><th>שחקן</th><th class="n">כרגע</th><th class="n">נק׳</th></tr></thead><tbody>${rows}</tbody></table></div><p class="wait">ההימור המלא: ${b.order.map(esc).join(' · ')}</p>`,
+    [{t:'סגור'},{t:'מחק הימור',f:()=>confirmBox(`למחוק את ההימור של ${esc(b.name)}?`,()=>{S.bets=S.bets.filter(x=>x!==b);render()})}])}
+
+/* ---------- live sync over ntfy.sh: managers publish, everyone watches ---------- */
+const curInfo=()=>R?{n:R.n,s:score(R),st:R.state,by:ME,t:Date.now()}:null;
+const otherCur=()=>{const c=REMOTE&&REMOTE.cur;return c&&c.by!==ME&&Date.now()-(c.t||0)<180000?c:null};
+function encCore(){return{p:S.players.map(p=>[p.n,p.on?1:0]),c:S.cfg,o:S.order,q:S.qual,pd:S.podium?S.podium.map(x=>[x.n,x.s]):null,bl:S.betLead||'',rec:S.rec?1:0,
+  g:S.stages.map(st=>({k:st.kind,ti:st.title,o:st.order,sp:st.spots,r:Object.fromEntries(Object.entries(st.res).map(([n,r])=>[n,r.balls.join('')+(r.b3?1:0)+(r.b5?1:0)+(r.money==null?'-':r.money)+':'+(r.left||0)]))}))}}
+function decS(d){const pr=x=>{const[a,l]=x.split(':'),r={balls:a.slice(0,25).split('').map(Number),b3:+a[25],b5:+a[26],money:a[27]==='-'?null:+a[27],left:+l||0};r.s=score(r);return r};
+  return{players:d.p.map(([n,on])=>({n,on:!!on})),cfg:d.c,order:d.o,qual:d.q||[],podium:d.pd?d.pd.map(([n,s])=>({n,s})):null,betLead:d.bl||'',rec:!!d.rec,
+    stages:(d.g||[]).map(g=>({kind:g.k,title:g.ti,order:g.o,spots:g.sp,res:Object.fromEntries(Object.entries(g.r||{}).map(([n,x])=>[n,pr(x)]))}))}}
+function encBets(){const names=S.players.map(p=>p.n);return{n:names,lk:S.lockBets?1:0,b:S.bets.map(b=>[b.name,b.order.map(x=>names.indexOf(x)).filter(i=>i>=0).map(i=>i.toString(36)).join('')])}}
+const decBets=d=>(d.b||[]).map(([name,x])=>({name,order:x.split('').map(c=>d.n[parseInt(c,36)]).filter(Boolean)}));
+async function post(topic,obj){try{const r=await fetch(NT+topic,{method:'POST',body:JSON.stringify(obj)});if(!r.ok)throw r.status;netOk=true;return true}catch(e){if(netOk)toast(e===429?'שרת הלייב עמוס — ננסה שוב עוד רגע':'אין חיבור ללייב — ננסה שוב');netOk=false;return false}}
+async function latest(topic){for(const q of['since=latest','since=12h']){try{const r=await fetch(NT+topic+'/json?poll=1&'+q);if(!r.ok)continue;const ls=(await r.text()).trim().split('\n').filter(Boolean);for(let i=ls.length-1;i>=0;i--){const m=JSON.parse(ls[i]);if(m.event==='message')return JSON.parse(m.message)}return null}catch(e){}}return null}
+async function allSince(topic){try{const r=await fetch(NT+topic+'/json?poll=1&since=12h');if(!r.ok)return[];return(await r.text()).trim().split('\n').filter(Boolean).map(l=>{try{return JSON.parse(l)}catch(e){return null}}).filter(m=>m&&m.event==='message')}catch(e){return[]}}
+function listen(topics,cb){try{const es=new EventSource(NT+topics.join(',')+'/sse');es.onmessage=e=>{try{const m=JSON.parse(e.data);if(m.event==='message')cb(m.topic,JSON.parse(m.message),m.id)}catch(x){}}}catch(e){}}
+function pushLive(){if(!SYNC)return;clearTimeout(pubT);pubT=setTimeout(publishNow,700)}
+async function publishNow(){
+  if(pubBusy){pushLive();return}pubBusy=true;
+  const core=encCore(),sk=JSON.stringify(core),c=curInfo(),ck=c?c.n+'|'+c.st:'',now=Date.now();
+  const due=sk!==lastSKey||ck!==lastCurKey||(c&&now-lastCurPub>=20000&&c.s!==(REMOTE&&REMOTE.cur?REMOTE.cur.s:-1));
+  if(due){if(sk!==lastSKey)S.rev=Math.max(S.rev||0,remoteRev)+1;const msg={v:S.rev||0,t:now,cur:c,...core};
+    if(await post(TS,msg)){lastSKey=sk;lastCurKey=ck;lastCurPub=now;remoteRev=Math.max(remoteRev,S.rev||0);REMOTE={...msg};store(KEY,S)}else setTimeout(pushLive,15000)}
+  const bc=encBets(),bk=JSON.stringify(bc);
+  if(bk!==lastBKey){S.brev=(S.brev||0)+1;if(await post(TB,{v:S.brev,t:now,...bc})){lastBKey=bk;store(KEY,S)}else setTimeout(pushLive,15000)}
+  pubBusy=false}
+function adoptState(d){const keep={tab:S.tab,bets:S.bets,brev:S.brev,lockBets:S.lockBets,seen:S.seen};S={...decS(d),...keep,rev:d.v||0};lastSKey=JSON.stringify(encCore());store(KEY,S)}
+function adoptBets(d){S.bets=decBets(d);S.brev=d.v||0;S.lockBets=!!d.lk;lastBKey=JSON.stringify(encBets());store(KEY,S)}
+function upsertBet(m,id){if(S.lockBets||!m||!m.name||!Array.isArray(m.order))return false;S.seen=S.seen||[];if(id){if(S.seen.includes(id))return false;S.seen.push(id);if(S.seen.length>400)S.seen.splice(0,100)}
+  const names=S.players.map(p=>p.n),order=m.order.map(String).filter(n=>names.includes(n)).filter((n,i,a)=>a.indexOf(n)===i);if(order.length<3)return false;
+  const name=nrm(m.name).slice(0,24);const i=S.bets.findIndex(x=>nrm(x.name)===name);const b={name,order,ts:m.ts||Date.now()};if(i>=0)S.bets[i]=b;else S.bets.push(b);return true}
+function liveState(cur,t){const st=S.stages.length?stg():null;
+  return{t,status:!S.stages.length?'setup':S.podium?'done':'live',stage:st?st.title:'',board:st?ranked(st).map(x=>({n:x.n,s:x.s})):[],fin:st&&isQual(st)?st.spots:1,
+    up:st&&!S.podium?nextUp(st).slice(0,3):[],podium:S.podium||null,cur:cur&&Date.now()-(cur.t||0)<180000?cur:null,bets:betBoard().map(b=>({n:b.name,t:b.t,c:b.order[0]||''}))}}
+function liveRows(arr,k,byIndex){let rk=0;return '<div class="board">'+arr.map((x,i)=>{if(byIndex||i===0||x.s!==arr[i-1].s)rk=i+1;return `<div class="row${i<k?' q':''}"><span class="rk">${rk}</span><span class="nm">${esc(x.n)}${x.c!=null?`<small>אלוף: ${esc(x.c)}</small>`:''}</span><span></span><span class="sc">${x.s}</span></div>`}).join('')+'</div>'}
+function liveView(d){
+  const betLink=!S.lockBets&&!(d&&d.status==='done')?`<div class="acts"><a class="btn" href="${FORM_URL}" target="_blank" rel="noopener">רוצים להמר? לטופס ההימורים</a></div>`:'';
+  if(!d)return '<h1>לייב</h1><p class="empty card">מתחבר לתחרות…</p>'+betLink;
+  const bets=d.bets.length?`<h2>מובילים בהימורים</h2>`+liveRows(d.bets.map(b=>({n:b.n,s:b.t,c:b.c})),d.bets[0].t>0?1:0):'';
+  if(d.status==='setup')return '<h1>לייב</h1><p class="empty card">התחרות עוד לא התחילה. הדף יתעדכן לבד.</p>'+betLink+bets;
+  let h=`<h1>${d.status==='done'&&d.podium?esc(d.podium[0].n)+' אלוף השלשות':esc(d.stage)}</h1><p class="sub"><span class="livedot"></span>לייב${d.t?` · עודכן ב־${new Date(d.t).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:''}</p>`;
+  if(d.status!=='done'){if(d.cur)h+=`<section class="card deck"><div class="lbl">${d.cur.st==='run'?'זורק עכשיו':d.cur.st==='over'?'סיים את הסיבוב':'מתכונן לזרוק'}</div><div class="who">${esc(d.cur.n)}</div><div class="who" style="color:var(--ball)">${d.cur.s}</div></section>`;
+    else if(d.up.length)h+=`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(d.up[0])}</div>${d.up[1]?`<div class="then">אחריו: ${d.up.slice(1).map(esc).join(' · ')}</div>`:''}</section>`}
+  h+=d.status==='done'&&d.podium?`<h2>הגמר</h2>`+liveRows(d.podium,1,true):`<h2>טבלה</h2>`+(d.board.length?liveRows(d.board,d.fin):'<p class="empty">עוד אין תוצאות</p>');
+  return h+bets+betLink}
+function viewerMode(){
+  $('#tabs').hidden=true;const v=$('#view');S={...fresh(),bets:[],lockBets:false};let st=null,cur=null,t=0;
+  const draw=()=>{v.innerHTML=liveView(st?liveState(cur,t):null)};draw();
+  const onS=d=>{if(!d||!d.p)return;if((d.v||0)<(st&&st.v||0))return;st=d;cur=d.cur;t=d.t;const b={bets:S.bets,lockBets:S.lockBets};S={...decS(d),...b,tab:'game'};draw()};
+  const onB=d=>{if(!d||!d.n)return;S.bets=decBets(d);S.lockBets=!!d.lk;draw()};
+  const pull=async()=>{const[a,b]=await Promise.all([latest(TS),latest(TB)]);if(b)onB(b);if(a)onS(a);if(!a)v.innerHTML=liveView(liveState(null,0)).replace('התחרות עוד לא התחילה. הדף יתעדכן לבד.','התחרות עוד לא התחילה. הדף יתעדכן לבד.')};
+  pull();listen([TS,TB],(tp,d)=>tp===TS?onS(d):onB(d));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});setInterval(()=>{if(cur)draw()},30000)}
+async function managerSync(){
+  SYNC=true;
+  const[a,b]=await Promise.all([latest(TS),latest(TB)]);
+  if(a&&a.p){remoteRev=a.v||0;REMOTE=a;if((a.v||0)>(S.rev||0)&&!R)adoptState(a)}
+  if(b&&b.n&&(b.v||0)>(S.brev||0))adoptBets(b);
+  const subs=await allSince(TI);let n=0;subs.forEach(m=>{try{if(upsertBet(JSON.parse(m.message),m.id))n++}catch(e){}});if(n)toast(`נקלטו ${n} הימורים מהטופס`);
+  if(!R)render();pushLive();
+  listen([TS,TB,TI],(tp,d,id)=>{
+    if(tp===TS){if(!d||!d.p)return;const had=!!otherCur();REMOTE=d;remoteRev=Math.max(remoteRev,d.v||0);if((d.v||0)>(S.rev||0)){if(!R){adoptState(d);render()}}else if(!R&&had!==!!otherCur()&&S.tab==='game')render()}
+    else if(tp===TB){if(d&&d.n&&(d.v||0)>(S.brev||0)){adoptBets(d);if(!R)render()}}
+    else if(upsertBet(d,id)){toast(`הימור חדש: ${d.name}`);if(!R)render();pushLive()}});
+  setInterval(()=>{if(!R&&REMOTE&&REMOTE.cur&&!otherCur()&&S.tab==='game'&&$('#otherBusy'))render()},20000)}
+function detail(si,n){
+  const st=S.stages[si],r=st.res[n];if(!r)return;
+  const rows=[0,1,2,3,4].map(s=>{const bb=r.balls.slice(s*5,s*5+5),pts=bb.reduce((t,b,j)=>t+(b?val(r.money,s*5+j):0),0);return `<div><span>עמדה ${s+1}${r.money===s?' (כסף)':''}</span><span class="dots">${bb.map((b,j)=>`<i class="d${b?' y':''}${val(r.money,s*5+j)===2?' m':''}"></i>`).join('')}</span><b>${pts}</b></div>`}).join('');
+  const canRedo=si===S.stages.length-1&&!S.podium;
+  modal(`<h3>${esc(n)} · ${r.s}</h3><div class="brk">${rows}<div><span>שלושת רבע</span><b>${r.b3?3:0}</b></div><div><span>חצי מגרש</span><b>${r.b5?5:0}</b></div></div><p class="wait">${st.title} · רצף ארוך: ${streakMax(r.balls)}${r.left?` · סיים עם ${r.left} שניות בשעון`:''}</p>`,
+    [{t:'סגור'}].concat(canRedo?[{t:'מחק וזרוק מחדש',f:()=>confirmBox(`למחוק את התוצאה של ${esc(n)}?`,()=>{delete st.res[n];st.order=[n].concat(st.order.filter(x=>x!==n));render()})}]:[]))}
+function confirmBox(t,f){modal(`<h3>בטוח?</h3><p>${t}</p>`,[{t:'ביטול'},{t:'כן',c:'pri',f}])}
+
+/* ---------- shooting round ---------- */
+function openRound(){
+  const st=stg(),n=nextUp(st)[0];if(!n)return;if(otherCur()){toast('מנהל אחר מנקד עכשיו');return}ac();roundBase=S.rev||0;
+  R={n,si:S.stages.length-1,balls:Array(25).fill(null),b3:null,b5:null,money:S.cfg.money?moneyPick:null,hist:[],t0:0,left:S.cfg.sec,sl:S.cfg.sec+1,state:'cd',iv:null,hot:false};
+  const r=ranked(st);R.tgt=isQual(st)?(r.length>=st.spots?r[st.spots-1].s+1:null):(r.length?r[0].s+1:null);
+  $('#shoot').hidden=false;document.body.style.overflow='hidden';upd();
+  let c=3;const cd=$('#cd');cd.hidden=false;
+  const step=()=>{if(!R)return;if(c>0){cd.textContent=c;say(String(c));tone(520,.12);c--;R.cdT=setTimeout(step,1000)}else{cd.textContent='יאללה';say('יאללה!');tone(1046,.3);R.cdT=setTimeout(()=>{cd.hidden=true},450);go()}};
+  say(n+', מוכן?');R.cdT=setTimeout(step,1100)}
+function go(){R.state='run';R.t0=performance.now();R.iv=setInterval(tick,100);wake(true);upd()}
+function tick(){if(!R||R.state!=='run')return;const left=Math.max(0,S.cfg.sec-(performance.now()-R.t0)/1000),sl=Math.ceil(left);R.left=left;
+  if(sl!==R.sl){R.sl=sl;const c=S.cfg;if(sl>0&&sl<c.sec){if(c.last5&&sl<=5){say(String(sl));tone(880,.08)}else if(sl%c.every===0){say(sl===10?'עשר שניות!':`נשארו ${sl}`);if(!heVoice)tone(660,.15)}}}
+  updTimer();if(left<=0)over(true)}
+function over(timeUp){if(R.state==='over')return;clearInterval(R.iv);R.state='over';wake(false);
+  if(timeUp){sfx.buzz();say('הזמן נגמר!')}else say(`סיום! ${score(R)} נקודות`);upd()}
+const allDone=()=>R.balls.indexOf(null)<0&&R.b3!==null&&R.b5!==null;
+function shot(v){if(!R||R.state==='cd')return;const i=R.balls.indexOf(null);if(i<0)return;R.balls[i]=v;R.hist.push(i);
+  if(v){val(R.money,i)===2?sfx.money():sfx.make()}else sfx.miss();
+  const tail=curStreak();if(tail>=3&&!R.hot){R.hot=true;setTimeout(sfx.hot,150)}if(tail<3)R.hot=false;
+  if(allDone()&&R.state==='run')over(false);upd()}
+function bonus(k,v){if(!R||R.state==='cd'||R[k]!==null)return;R[k]=v;R.hist.push(k);v?sfx.money():sfx.miss();if(allDone()&&R.state==='run')over(false);upd()}
+function curStreak(){let c=0;for(let i=R.balls.length-1;i>=0;i--){if(R.balls[i]===null)continue;if(R.balls[i]===1)c++;else break}return c}
+function undo(){if(!R||!R.hist.length)return;const h=R.hist.pop();if(typeof h==='number')R.balls[h]=null;else R[h]=null;R.hot=curStreak()>=3;upd()}
+function closeRound(){if(R){clearTimeout(R.cdT);clearInterval(R.iv)}R=null;wake(false);try{speechSynthesis.cancel()}catch(e){}$('#shoot').hidden=true;$('#cd').hidden=true;document.body.style.overflow=''}
+function saveRound(){
+  let st=S.stages[R.si];const n=R.n,res={balls:R.balls.map(b=>b===1?1:0),b3:R.b3===1?1:0,b5:R.b5===1?1:0,money:R.money,s:score(R),left:Math.round(R.left)};
+  if(REMOTE&&REMOTE.p&&(REMOTE.v||0)>roundBase){const keep={tab:S.tab,bets:S.bets,brev:S.brev,lockBets:S.lockBets,seen:S.seen},base={...decS(REMOTE),...keep,rev:REMOTE.v||0},bst=base.stages[R.si];if(bst&&bst.kind===st.kind&&!bst.res[n]){S=base;st=bst}}
+  st.res[n]=res;closeRound();moneyPick=4;save();toast(`${n}: ${res.s} נקודות`);
+  const up=nextUp(st);if(!up.length)resolve(st);else{render();setTimeout(()=>say(`${n} סיים עם ${res.s}. הבא בתור: ${up[0]}`),300)}
+  const bl=betBoard()[0];if(bl&&bl.t>0&&bl.name!==S.betLead){S.betLead=bl.name;save();setTimeout(()=>say(`בהימורים מוביל עכשיו: ${bl.name}`,false),700)}}
+function updTimer(){const sl=Math.ceil(R.left),t=$('#tNum');t.textContent=R.state==='cd'?S.cfg.sec:sl;t.classList.toggle('low',R.state==='run'&&sl<=10);$('#tBar').style.width=(R.left/S.cfg.sec*100)+'%'}
+function upd(){
+  const st=S.stages[R.si],sc=score(R),i=R.balls.indexOf(null);
+  $('#shStage').textContent=st.title;$('#shName').textContent=R.n;$('#shScore').textContent=sc;
+  $('#shTgt').textContent=R.tgt==null?`מקסימום ${maxScore(R.money)}`:sc>=R.tgt?'עבר את היעד!':`יעד ${R.tgt}`;
+  updTimer();$('#shCourt').innerHTML=courtSVG(R);
+  const cs=curStreak();$('#shHot').innerHTML=cs>=3?`<span class="hot">בוער! ${cs} ברצף</span>`:R.state==='cd'?'מתכוננים…':R.state==='over'?'':'';
+  $('#shWhere').innerHTML=i<0?'כל כדורי העמדות נזרקו':`עמדה ${Math.floor(i/5)+1} · כדור ${i%5+1} מתוך 5${val(R.money,i)===2?' · <b>כדור כסף ×2</b>':''}`;
+  $('#bMake').innerHTML=`נכנס<small>${i<0?'—':'+'+val(R.money,i)}</small>`;
+  $('#bMake').disabled=$('#bMiss').disabled=i<0||R.state==='cd';
+  $('#shBonus').innerHTML=[['b3','שלושת רבע',3],['b5','חצי מגרש',5]].map(([k,l,p])=>`<div class="bn ${R[k]===1?'y':R[k]===0?'n':''}"><div><b>${l}</b><span>${p} נק'</span></div>${R[k]===null?`<button data-b="${k}" data-v="1" ${R.state==='cd'?'disabled':''}>נכנס</button><button data-b="${k}" data-v="0" ${R.state==='cd'?'disabled':''}>החטיא</button>`:`<em>${R[k]?'נכנס! +'+p:'החטיא'}</em>`}</div>`).join('');
+  $('#shBanner').innerHTML=R.state==='over'?`<div class="banner">${R.left<=0?'הזמן נגמר':'סיום'} · ${sc} נקודות · אפשר עוד לתקן לפני שמירה</div>`:'';
+  pushLive();
+  $('#bSave').textContent=R.state==='over'?'שמור תוצאה':'סיים עכשיו';$('#bSave').disabled=R.state==='cd';$('#bUndo').disabled=!R.hist.length}
+
+/* ---------- events ---------- */
+$('#tabs').onclick=e=>{const b=e.target.closest('[data-t]');if(b){S.tab=b.dataset.t;render();scrollTo(0,0)}};
+$('#modal').onclick=e=>{if(e.target.id==='modal')closeM()};
+$('#bMake').onclick=()=>shot(1);$('#bMiss').onclick=()=>shot(0);$('#bUndo').onclick=undo;
+$('#shBonus').onclick=e=>{const b=e.target.closest('[data-b]');if(b)bonus(b.dataset.b,+b.dataset.v)};
+$('#bSave').onclick=()=>{if(!R)return;if(R.state==='run')over(false);else if(R.state==='over')saveRound()};
+$('#bAbort').onclick=()=>{if(!R)return;const ab=()=>{closeRound();if(REMOTE&&REMOTE.p&&(REMOTE.v||0)>(S.rev||0)){adoptState(REMOTE)}render()};if(!R.hist.length&&R.state!=='over'){ab();return}confirmBox(`לצאת בלי לשמור את הסיבוב של ${esc(R.n)}?`,ab)};
+document.addEventListener('keydown',e=>{if(!R||!$('#modal').hidden)return;if(e.key==='ArrowRight'||e.key==='1')shot(1);else if(e.key==='ArrowLeft'||e.key==='0')shot(0);else if(e.key==='Backspace')undo()});
+$('#view').addEventListener('click',e=>{
+  const t=e.target.closest('button,a');if(!t)return;const id=t.id;
+  if(id==='draw'){ac();let k=0;const p=present();const spin=setInterval(()=>{const o=$('#ord');if(o)o.innerHTML=shuffle(p).map(n=>`<li>${esc(n)}</li>`).join('');tone(400+k*30,.04,'square',.05);if(++k>12){clearInterval(spin);S.order=shuffle(p).concat(S.order.filter(n=>!p.includes(n)));render();say('הסדר הוגרל. ראשון: '+present()[0])}},80)}
+  else if(id==='start'){ac();startTour()}
+  else if(id==='go')openRound();
+  else if(id==='skip'){const st=stg(),n=nextUp(st)[0];st.order=st.order.filter(x=>x!==n).concat(n);render();toast(`${n} עבר לסוף התור`)}
+  else if(id==='reset')confirmBox('כל תוצאות הערב יימחקו. ההימורים נשארים.',()=>{S=fresh(S,true);render()});
+  else if(id==='again')confirmBox('לפתוח תחרות חדשה? הערב הזה כבר שמור בטבלת העונה, וההימורים יימחקו.',()=>{S=fresh(S);render()});
+  else if(id==='goBets'){S.tab='bets';render();scrollTo(0,0)}
+  else if(id==='formCp')copy(FORM_URL);
+  else if(id==='viewCp')copy(VIEW_URL);
+  else if(id==='mgrCp')copy(VIEW_URL+'#'+MKEY);
+  else if(id==='lockBets'){S.lockBets=!S.lockBets;render();toast(S.lockBets?'ההימורים ננעלו':'ההימורים נפתחו')}
+  else if(id==='betAdd'){const got=parseBets($('#betT').value);if(!got.length){toast('לא זיהיתי הימורים בטקסט');return}
+    let nw=0,up=0;got.forEach(b=>{const i=S.bets.findIndex(x=>nrm(x.name)===nrm(b.name));if(i>=0){S.bets[i]={...b,ts:Date.now()};up++}else{S.bets.push({...b,ts:Date.now()});nw++}});
+    render();toast(`נוספו ${nw}${up?` · עודכנו ${up}`:''}`)}
+  else if(t.dataset.bet!=null)betDetail(t.dataset.bet);
+  else if(id==='cp')copy(shareText());
+  else if(id==='cpRank')copy('דירוג: '+fullRank().join(', '));
+  else if(id==='tVoice'){ac();say('נשארו שמונים שניות');tone(660,.15);setTimeout(()=>{pickVoice();render()},800)}
+  else if(id==='bak')copy(JSON.stringify(season));
+  else if(id==='rest')modal('<h3>שחזור מגיבוי</h3><p class="wait">הדביקו את טקסט הגיבוי. ערבים קיימים לא יוכפלו.</p><textarea id="restT"></textarea>',[{t:'ביטול'},{t:'שחזר',c:'pri',f:()=>{}}]);
+  else if(t.dataset.m!=null){moneyPick=+t.dataset.m;render()}
+  else if(t.dataset.d){const[si,...n]=t.dataset.d.split('|');detail(+si,n.join('|'))}
+  else if(t.dataset.tg){S.cfg[t.dataset.tg]=!S.cfg[t.dataset.tg];render()}
+  else if(t.dataset.on!=null){S.players[+t.dataset.on].on=!S.players[+t.dataset.on].on;render()}
+  else if(t.dataset.rm!=null){const p=S.players[+t.dataset.rm];confirmBox(`להסיר את ${esc(p.n)} מהרשימה?`,()=>{S.players.splice(S.players.indexOf(p),1);render()})}
+  else if(t.dataset.del!=null){const i=+t.dataset.del;confirmBox(`למחוק את הערב מ־${esc(season[i].d)}?`,()=>{season.splice(i,1);store(SKEY,season);render()})}
+});
+$('#sheet').addEventListener('click',e=>{const b=e.target.closest('[data-i]');const ta=document.getElementById('restT');if(b&&ta&&b.textContent==='שחזר'){try{const d=JSON.parse(ta.value);if(!Array.isArray(d))throw 0;const ids=new Set(season.map(x=>x.id));d.forEach(x=>{if(x&&x.id&&Array.isArray(x.rounds)&&!ids.has(x.id))season.push(x)});season.sort((a,b)=>b.id-a.id);store(SKEY,season);render();toast('שוחזר')}catch(err){toast('הטקסט לא נראה כמו גיבוי')}}},true);
+$('#view').addEventListener('submit',e=>{e.preventDefault();const i=$('#addn'),n=i.value.trim();if(!n)return;if(S.players.some(p=>p.n===n)){toast('השם כבר ברשימה');return}S.players.push({n,on:true});render();$('#addn').focus()});
+$('#view').addEventListener('change',e=>{const id=e.target.id,v=+e.target.value;if(id==='cSec'&&v>=20&&v<=300)S.cfg.sec=Math.round(v);if(id==='cEv')S.cfg.every=v;if(id==='cFin'&&v>=1&&v<=8)S.cfg.fin=Math.round(v);save()});
+render();
+if(location.hash==='#'+MKEY)managerSync();else viewerMode();
+window.addEventListener('hashchange',()=>location.reload());
+}
+</script>
+</body>
+</html>
