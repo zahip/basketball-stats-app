@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>הימורי שלשות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: the group chat's betting pool — cheeky, fast, one thumb
+   IDEA: a ladder of finishing places, like the rack of names chalked on a locker-room board
+   PICTURE: the 1–15 ladder itself, top three painted as the final
+   COLOUR and TYPE: maple wood, key red for the final places, ball orange for actions; Karantina + Rubik
+   LAYOUT: one column; the name pool sticks above the ladder while you tap */
+:root{color-scheme:light dark;
+--bg:light-dark(#f1dbb3,#1c130c);--wood2:light-dark(#e8cc9b,#26190f);--card:light-dark(#fbf1de,#2c1e13);
+--ink:light-dark(#22160c,#f6e9d6);--mut:light-dark(#6b543d,#bba68b);--line:light-dark(#22160c26,#f6e9d624);
+--paint:light-dark(#c41f2e,#e2434f);--ball:#f2681c;--ballDk:#a8410a;--wa:#1f9e55}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg) repeating-linear-gradient(90deg,transparent 0 54px,var(--line) 54px 55px);color:var(--ink);font:16px/1.5 Rubik,system-ui,sans-serif;overflow-x:clip;-webkit-tap-highlight-color:transparent}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:14px;min-height:44px;padding:0 16px;background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--ball);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.pri{background:var(--ball);color:#fff;box-shadow:0 3px 0 var(--ballDk);font-weight:700}
+main{max-width:640px;margin:0 auto;padding:22px max(4vw,14px) 70px}
+.hero{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{font:700 clamp(46px,12vw,64px)/.95 Karantina,sans-serif;margin:0;text-wrap:balance}
+h2{font:700 32px/1 Karantina,sans-serif;margin:30px 0 8px}
+.sub{color:var(--mut);margin:6px 0 0}
+.pill{flex:none;border-radius:99px;padding:4px 12px;font-size:14px;font-weight:500;background:var(--ink);color:var(--bg);white-space:nowrap}
+.pill.lk{background:var(--paint);color:#fff}.pill.res{background:var(--ball);color:#fff}
+.rules{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;padding:0;list-style:none}
+.rules li{background:var(--card);border-radius:99px;padding:4px 12px;font-size:14px;box-shadow:inset 0 0 0 1.5px var(--line)}.rules b{color:var(--paint)}
+.poolbox{position:sticky;top:0;z-index:3;background:var(--bg);padding:10px 0;border-bottom:2px solid var(--ink)}
+.poolbox p{margin:0 0 6px;font-size:14px;color:var(--mut);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.poolbox p button{min-height:36px;font-size:14px;padding:0 12px}
+#pool{display:flex;flex-wrap:wrap;gap:6px}
+#pool button{background:var(--ink);color:var(--bg);box-shadow:none;font-weight:500}
+#pool .ok{color:var(--wa);font-weight:700;min-height:44px;display:flex;align-items:center}
+#ladder{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:5px}
+.sl{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:50px;background:var(--card);border-radius:12px;padding:3px 6px 3px 4px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.sl .pos{font:700 30px/1 Karantina,sans-serif;text-align:center;color:var(--mut)}
+.sl .nm{font-weight:500;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl.top{box-shadow:inset 0 0 0 2px var(--paint)}.sl.top .pos{color:var(--paint)}
+.sl.top:first-child{background:var(--paint);color:#fff}.sl.top:first-child .pos{color:#fff}
+.sl.next{box-shadow:inset 0 0 0 2px var(--ball)}.sl.next .nm{color:var(--mut);font-weight:400;font-size:15px}
+.sl:not(.f):not(.next) .nm{color:transparent}
+.ctl{display:flex;gap:4px}.ctl button{min-width:40px;min-height:40px;padding:0;border-radius:10px;font-size:14px}
+.sl.top:first-child .ctl button{background:#ffffff26;color:#fff;box-shadow:none}
+.divider{font-size:13px;color:var(--paint);font-weight:700;display:flex;gap:8px;align-items:center}.divider::after{content:"";flex:1;border-top:2px dashed currentColor}
+.field{display:grid;gap:6px;margin-top:16px}.field label{font-weight:500}
+input[type=text],textarea{width:100%;min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);padding:0 12px;font-size:16px}
+textarea{min-height:130px;padding:10px;font-size:15px;line-height:1.5}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.acts>*{flex:1 1 150px}
+a.wa{display:flex;align-items:center;justify-content:center;min-height:48px;border-radius:14px;background:var(--wa);color:#fff;font-weight:700;text-decoration:none;padding:0 14px;text-align:center}
+a.wa[aria-disabled=true]{opacity:.45;pointer-events:none}
+.note{font-size:14px;color:var(--mut);margin:8px 0 0}.note.good{color:var(--wa);font-weight:500}.note.bad{color:var(--paint);font-weight:500}
+.board{display:grid;gap:6px}
+.br{display:grid;grid-template-columns:30px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:start;padding:8px 12px;min-height:60px}
+.br .rk{font:700 28px/1 Karantina,sans-serif;color:var(--mut);text-align:center}
+.br .who{font-weight:700;display:block}.br .who small{font-weight:400;color:var(--mut);margin-inline-start:6px}
+.br .pv{display:block;font-size:14px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.br .pt{font:700 34px/1 Karantina,sans-serif;color:var(--ball)}
+.br.me{box-shadow:inset 0 0 0 2px var(--ball)}
+.br.lead{background:var(--ink);color:var(--bg);box-shadow:none}.br.lead .pv,.br.lead .rk,.br.lead small{color:var(--bg);opacity:.8}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:10px}
+.stats div{background:var(--card);border-radius:14px;padding:10px 12px;box-shadow:inset 0 0 0 1.5px var(--line)}.stats small{display:block;color:var(--mut);font-size:13px}.stats b{font:700 26px/1.1 Karantina,sans-serif}
+.empty{color:var(--mut);text-align:center;padding:18px;background:var(--card);border-radius:14px}
+details.adm{margin-top:34px;background:var(--card);border-radius:18px;padding:4px 16px 16px;box-shadow:inset 0 0 0 1.5px var(--line)}
+details.adm summary{cursor:pointer;min-height:48px;display:flex;align-items:center;font:700 28px/1 Karantina,sans-serif}
+.adm h3{font-size:16px;margin:18px 0 6px}
+.modal{position:fixed;inset:0;z-index:40;background:#0009;display:grid;place-items:end center;padding:12px}.modal[hidden]{display:none}
+.sheet{background:var(--bg);border-radius:22px;padding:20px;width:min(560px,100%);max-height:88vh;overflow-y:auto}
+.sheet h3{font:700 36px/1 Karantina,sans-serif;margin:0 0 10px}
+.tbl{width:100%;border-collapse:collapse;font-size:15px}.tbl th,.tbl td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:start}.tbl .n{text-align:end;font-variant-numeric:tabular-nums}
+.tbl tr.hit td{color:var(--wa);font-weight:700}
+#toast{position:fixed;bottom:18px;inset-inline:0;margin:auto;width:max-content;max-width:90vw;background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="hero"><div><h1>מי לוקח את השלשות?</h1><p class="sub">דרגו את כל המשתתפים לפי הסדר שבו הם יסיימו. מי שקולע הכי קרוב — מנצח.</p></div><span class="pill" id="status">פתוח להימורים</span></div>
+  <ul class="rules"><li>מיקום מדויק <b>3</b></li><li>פספוס במקום אחד <b>1</b></li><li>אלוף נכון <b>+5</b></li><li>כל עולה לגמר נכון <b>+2</b></li></ul>
+
+  <section id="formSec" aria-label="ההימור שלך">
+    <h2>ההימור שלך</h2>
+    <div class="poolbox"><p><span id="poolHint">הקישו על השחקנים לפי הסדר — הראשון שתבחרו הוא האלוף</span><span><button id="rnd">השלם אקראית</button> <button id="clr">נקה</button></span></p><div id="pool"></div></div>
+    <ol id="ladder"></ol>
+    <div class="field"><label for="name">השם שלך</label><input type="text" id="name" maxlength="24" autocomplete="nickname" placeholder="למשל: דודו"></div>
+    <div id="actions"></div>
+    <p class="note" id="formNote"></p>
+  </section>
+
+  <h2>טבלת המהמרים</h2>
+  <div id="stats"></div>
+  <div id="board"><p class="empty">טוען…</p></div>
+
+  <details class="adm" id="adm" hidden>
+    <summary>ניהול (רק לך)</summary>
+    <h3>נעילת הימורים</h3>
+    <p class="note">כשנועלים, כולם רואים את ההימורים של כולם ואי אפשר לשנות.</p>
+    <div class="acts"><button id="lockB"></button></div>
+    <h3>תוצאות אמת</h3>
+    <p class="note">באפליקציית התחרות: "העתק דירוג לטופס ההימורים", והדביקו כאן. אפשר גם לבנות את הסדר בסולם למעלה וללחוץ "הסולם שלי = התוצאות".</p>
+    <textarea id="resT" placeholder="דירוג: צחי, עומר, אלון, …"></textarea>
+    <div class="acts"><button id="resSave" class="pri">פרסם תוצאות</button><button id="resLadder">הסולם שלי = התוצאות</button><button id="resClr">הסר תוצאות</button></div>
+    <h3>הימור שהגיע בוואטסאפ</h3>
+    <textarea id="waT" placeholder="הדביקו את ההודעה כמו שהיא"></textarea>
+    <div class="acts"><button id="waAdd" class="pri">הוסף לטבלה</button></div>
+    <h3>רשימת המשתתפים</h3>
+    <textarea id="plT"></textarea>
+    <div class="acts"><button id="plSave">שמור רשימה</button><button id="newRound">סבב חדש: מחק הימורים ותוצאות</button></div>
+  </details>
+</main>
+<div class="modal" id="modal" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const DEF=['צחי','עומר','אלון','בן שך','גרופי','עמית','רועי','יובל','פישמן','עידן','שלום','רז','איתי','בן גל','חן'];
+const DK='bets-draft-v1';
+const ld=()=>{try{return JSON.parse(localStorage.getItem(DK))||{}}catch(e){return{}}};
+const sv=()=>{try{localStorage.setItem(DK,JSON.stringify({pick,name:$('#name').value}))}catch(e){}};
+let db=null,user=null,uid=null,canW=null,isOwn=false,ro=false,mode='boot',loaded=false,busy=false;
+let bets=[],meta={players:DEF,order:[],locked:false};
+const d0=ld();let pick=Array.isArray(d0.pick)?d0.pick:[];$('#name').value=d0.name||'';
+const players=()=>Array.isArray(meta.players)&&meta.players.length?meta.players:DEF;
+const results=()=>Array.isArray(meta.order)&&meta.order.length?meta.order:null;
+const mine=()=>uid?bets.find(b=>b.id===uid):null;
+
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),2400)}
+function modal(html,btns=[{t:'סגור'}]){const sh=$('#sheet');sh.innerHTML=html+'<div class="acts">'+btns.map((b,i)=>`<button data-i="${i}" class="${b.c||''}">${b.t}</button>`).join('')+'</div>';$('#modal').hidden=false;sh.onclick=e=>{const b=e.target.closest('[data-i]');if(!b)return;$('#modal').hidden=true;const f=btns[+b.dataset.i].f;f&&f()}}
+$('#modal').onclick=e=>{if(e.target.id==='modal')$('#modal').hidden=true};
+function copy(t){(navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>toast('הועתק'),()=>modal(`<h3>העתקה ידנית</h3><textarea readonly>${esc(t)}</textarea>`))}
+
+/* ---------- scoring & parsing ---------- */
+function scoreBet(o,res){const ord=(o||[]).filter(n=>res.includes(n)),top=res.slice(0,3);let t=0,ex=0;
+  res.forEach((n,i)=>{const j=ord.indexOf(n);if(j<0)return;const d=Math.abs(i-j);if(!d){t+=3;ex++}else if(d===1)t+=1});
+  if(ord[0]&&ord[0]===res[0])t+=5;ord.slice(0,3).forEach(n=>{if(top.includes(n))t+=2});return{t,ex}}
+const norm=s=>s.replace(/[‎‏"'׳״]/g,'').replace(/\s+/g,' ').trim();
+function matchName(raw){const s=norm(raw).replace(/\s*[–\-:]\s*\d+\s*$/,'').replace(/^\d+\s*[.)\-]\s*/,'').trim();if(!s)return null;const P=players();return P.find(n=>norm(n)===s)||P.find(n=>norm(n).replace(/ /g,'')===s.replace(/ /g,''))||null}
+function parseList(txt){const body=txt.replace(/^[\s\S]*?דירוג\s*:/,'');const parts=body.split(/[,\n]+/).map(x=>x.trim()).filter(Boolean);const out=[],bad=[];parts.forEach(p=>{const m=matchName(p);if(m&&!out.includes(m))out.push(m);else if(!m&&!/^[🏀🏆🥈🥉]|הימור|מוקדמות|תחרות/.test(p))bad.push(p)});return{out,bad}}
+function parseBet(txt){const lines=txt.split('\n').map(l=>l.trim()).filter(Boolean);let name='';const h=lines.find(l=>/הימור/.test(l));if(h){const m=h.split(/[–\-:]/);name=norm(m[m.length-1]).replace(/^הימור.*$/,'')}
+  const rows=[];lines.forEach(l=>{const m=l.match(/^(\d+)\s*[.)]\s*(.+)$/);if(m){const n=matchName(m[2]);if(n)rows[+m[1]-1]=n}});const order=rows.filter(Boolean);return{name,order:[...new Set(order)]}}
+function betText(name){return [`🏀 הימור שלשות – ${name}`,...pick.map((n,i)=>`${i+1}. ${n}`)].join('\n')}
+
+/* ---------- render ---------- */
+function render(){renderStatus();renderLadder();renderActions();renderBoard();renderAdmin()}
+function renderStatus(){const s=$('#status'),r=results();s.className='pill'+(r?' res':meta.locked?' lk':'');s.textContent=r?'התוצאות פורסמו':meta.locked?'ההימורים נעולים':'פתוח להימורים'}
+function renderLadder(){
+  const P=players();pick=pick.filter((n,i)=>P.includes(n)&&pick.indexOf(n)===i);
+  const L=meta.locked&&!isOwn;
+  $('#ladder').innerHTML=P.map((_,i)=>{const n=pick[i],top=i<3?' top':'';
+    const row=n?`<li class="sl f${top}"><span class="pos">${i+1}</span><span class="nm">${esc(n)}</span>${L?'':`<span class="ctl"><button data-up="${i}" ${i?'':'disabled'} aria-label="הזז את ${esc(n)} למעלה">▲</button><button data-dn="${i}" ${i<pick.length-1?'':'disabled'} aria-label="הזז את ${esc(n)} למטה">▼</button><button data-x="${i}" aria-label="הסר את ${esc(n)}">✕</button></span>`}</li>`
+      :`<li class="sl${i===pick.length?' next':''}${top}"><span class="pos">${i+1}</span><span class="nm">${i===pick.length?(i===0?'מי האלוף?':'הקישו על השחקן הבא'):'·'}</span></li>`;
+    return row+(i===2&&P.length>3?'<li class="divider">קו הגמר</li>':'')}).join('');
+  const rest=P.filter(n=>!pick.includes(n));
+  $('#pool').innerHTML=L?'<span class="ok" style="color:var(--paint)">ההימורים נעולים</span>':rest.length?rest.map(n=>`<button data-add="${esc(n)}">${esc(n)}</button>`).join(''):'<span class="ok">כל השחקנים מדורגים</span>';
+  $('#poolHint').textContent=pick.length?`דירגתם ${pick.length} מתוך ${P.length}`:'הקישו על השחקנים לפי הסדר — הראשון שתבחרו הוא האלוף';
+  $('#rnd').disabled=$('#clr').disabled=L}
+function renderActions(){
+  const P=players(),full=pick.length===P.length,nm=$('#name').value.trim(),ok=full&&nm,L=meta.locked&&!isOwn;
+  const direct=db&&uid&&canW!==false&&!ro,m=mine();
+  if(L){$('#actions').innerHTML='';$('#formNote').className='note bad';$('#formNote').textContent=m?'ההימורים נעולים. ההימור שלך בטבלה.':'ההימורים נעולים — כבר לא ניתן להמר.';return}
+  $('#actions').innerHTML=`<div class="acts">${direct?`<button class="pri" id="saveB" ${ok&&!busy?'':'disabled'}>${m?'עדכן הימור':'שמור הימור'}</button>`:''}<a class="wa" id="waB" target="_blank" rel="noopener" aria-disabled="${!ok}" href="https://wa.me/?text=${encodeURIComponent(ok?betText(nm):'')}">שלח בוואטסאפ${direct?'':' למארגן'}</a><button id="cpB" ${ok?'':'disabled'}>העתק</button></div>`;
+  const fn=$('#formNote');
+  if(!full){fn.className='note';fn.textContent=`עוד ${P.length-pick.length} שחקנים לדרג.`}
+  else if(!nm){fn.className='note';fn.textContent='רק השם שלך חסר.'}
+  else if(m&&JSON.stringify(m.order)===JSON.stringify(pick)&&m.name===nm){fn.className='note good';fn.textContent='ההימור שלך שמור בטבלה. אפשר לשנות עד הנעילה.'}
+  else if(direct){fn.className='note';fn.textContent='שמרו כדי להיכנס לטבלה, או שלחו בוואטסאפ.'}
+  else{fn.className='note';fn.textContent=mode==='load'?'מתחבר לטבלה…':'שלחו את ההודעה למארגן בוואטסאפ, והוא יכניס אותה לטבלה.'}}
+function renderBoard(){
+  const res=results(),reveal=meta.locked||res||isOwn;
+  if(mode==='off'){$('#stats').innerHTML='';$('#board').innerHTML='<p class="empty">הטבלה המשותפת לא זמינה בתצוגה הזאת. ההימור שלכם יגיע למארגן בוואטסאפ.</p>';return}
+  if(!loaded){$('#board').innerHTML=`<p class="empty">${mode==='slow'?'לא מצליח להגיע לטבלה כרגע. אפשר לשלוח את ההימור בוואטסאפ.':'טוען…'}</p>`;return}
+  const rows=bets.map(b=>({...b,sc:res?scoreBet(b.order,res):null}));
+  rows.sort(res?(a,b)=>b.sc.t-a.sc.t||b.sc.ex-a.sc.ex:(a,b)=>(a.ts||0)-(b.ts||0));
+  let st='';
+  if(rows.length&&reveal){const c={};rows.forEach(b=>{const n=(b.order||[])[0];if(n)c[n]=(c[n]||0)+1});const fav=Object.entries(c).sort((a,b)=>b[1]-a[1])[0];
+    st=`<div class="stats"><div><small>מהמרים</small><b>${rows.length}</b></div>${fav?`<div><small>הפייבוריט לאליפות</small><b>${esc(fav[0])}</b>${fav[1]} מתוך ${rows.length}</div>`:''}${res?`<div><small>האלוף בפועל</small><b>${esc(res[0])}</b>${c[res[0]]||0} צדקו</div>`:''}</div>`}
+  $('#stats').innerHTML=st;
+  if(!rows.length){$('#board').innerHTML='<p class="empty">עוד אין הימורים. שלחו את הקישור לחברים.</p>';return}
+  let rk=0;
+  $('#board').innerHTML='<div class="board">'+rows.map((b,i)=>{if(res&&(i===0||b.sc.t!==rows[i-1].sc.t))rk=i+1;const me=b.id===uid,show=reveal||me;
+    return `<button class="br${me?' me':''}${res&&rk===1?' lead':''}" data-b="${esc(b.id)}"><span class="rk">${res?rk:i+1}</span><span><span class="who">${esc(b.name||'בלי שם')}${me?'<small>את/ה</small>':''}${b.src==='wa'?'<small>מוואטסאפ</small>':''}</span><span class="pv">${show?(b.order||[]).slice(0,3).map((n,j)=>`${j+1}. ${esc(n)}`).join(' · '):'נחשף כשההימורים ננעלים'}</span></span><span class="pt">${res?b.sc.t:''}</span></button>`}).join('')+'</div>'}
+function renderAdmin(){const a=$('#adm');a.hidden=!(isOwn&&db);if(a.hidden)return;$('#lockB').textContent=meta.locked?'פתח הימורים מחדש':'נעל הימורים';$('#lockB').className=meta.locked?'':'pri';if(document.activeElement!==$('#plT'))$('#plT').value=players().join('\n')}
+function detail(id){
+  const b=bets.find(x=>x.id===id);if(!b)return;const res=results(),me=b.id===uid;if(!(meta.locked||res||isOwn||me))return toast('ההימורים ייחשפו בנעילה');
+  const o=b.order||[],sc=res?scoreBet(o,res):null,ord=res?o.filter(n=>res.includes(n)):o;
+  const rows=ord.map((n,i)=>{const a=res?res.indexOf(n):-1,d=a<0?null:Math.abs(a-i),p=d===0?3:d===1?1:0;return `<tr class="${res&&d===0?'hit':''}"><td class="n">${i+1}</td><td>${esc(n)}</td>${res?`<td class="n">${a+1}</td><td class="n">${p}</td>`:''}</tr>`}).join('');
+  const extra=res?`<p class="note">${o[0]===res[0]?'אלוף נכון: +5 · ':''}עולים לגמר נכונים: +${ord.slice(0,3).filter(n=>res.slice(0,3).includes(n)).length*2} · סה״כ <b>${sc.t}</b></p>`:'';
+  const btns=[{t:'סגור'}];if(isOwn)btns.push({t:'מחק הימור',f:()=>modal(`<h3>למחוק?</h3><p>ההימור של ${esc(b.name)} יימחק מהטבלה.</p>`,[{t:'ביטול'},{t:'מחק',c:'pri',f:()=>db.doc('bets/'+b.id).delete().then(()=>toast('נמחק'),()=>toast('המחיקה נכשלה'))}])});
+  modal(`<h3>${esc(b.name||'בלי שם')}</h3><table class="tbl"><thead><tr><th class="n">הימור</th><th>שחקן</th>${res?'<th class="n">בפועל</th><th class="n">נק׳</th>':''}</tr></thead><tbody>${rows}</tbody></table>${extra}`,btns)}
+
+/* ---------- writes ---------- */
+async function setMeta(patch){const next={players:players(),order:results()||[],locked:!!meta.locked,...patch};try{await db.doc('meta/state').set(next);meta=next;render();return true}catch(e){toast(e&&e.code==='invalid_argument'?'אין הרשאה לשנות':'השמירה נכשלה, נסו שוב');return false}}
+async function saveMine(){
+  const nm=$('#name').value.trim();if(!nm||pick.length!==players().length||busy)return;busy=true;renderActions();
+  try{await db.doc('bets/'+uid).set({name:nm,order:pick.slice(),ts:Date.now(),src:'direct'});toast('ההימור נשמר')}
+  catch(e){if(e&&(e.code==='invalid_argument'||e.code==='revoked'||e.code==='not_granted')){ro=true;toast('אין לך הרשאת שמירה כאן — שלחו בוואטסאפ')}else toast(e&&e.code==='quota_exceeded'?'הטבלה מלאה':'השמירה נכשלה, נסו שוב')}
+  busy=false;renderActions()}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const t=e.target.closest('button,a');if(!t||t.closest('#sheet'))return;const d=t.dataset,P=players();
+  if(d.add!=null){if(!pick.includes(d.add))pick.push(d.add);sv();renderLadder();renderActions()}
+  else if(d.up!=null){const i=+d.up;[pick[i-1],pick[i]]=[pick[i],pick[i-1]];sv();renderLadder();renderActions()}
+  else if(d.dn!=null){const i=+d.dn;[pick[i+1],pick[i]]=[pick[i],pick[i+1]];sv();renderLadder();renderActions()}
+  else if(d.x!=null){pick.splice(+d.x,1);sv();renderLadder();renderActions()}
+  else if(d.b!=null)detail(d.b);
+  else if(t.id==='rnd'){const r=P.filter(n=>!pick.includes(n));for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]]}pick=pick.concat(r);sv();renderLadder();renderActions()}
+  else if(t.id==='clr'){pick=[];sv();renderLadder();renderActions()}
+  else if(t.id==='saveB')saveMine();
+  else if(t.id==='cpB')copy(betText($('#name').value.trim()));
+  else if(t.id==='lockB')setMeta({locked:!meta.locked}).then(ok=>ok&&toast(meta.locked?'ההימורים ננעלו':'ההימורים נפתחו'));
+  else if(t.id==='resSave'){const{out,bad}=parseList($('#resT').value);if(out.length<2)return toast('לא זיהיתי שמות ברשימה');
+    modal(`<h3>לפרסם?</h3><p>${out.map((n,i)=>`${i+1}. ${esc(n)}`).join('<br>')}</p>${bad.length?`<p class="note bad">לא זוהו: ${bad.map(esc).join(', ')}</p>`:''}`,[{t:'ביטול'},{t:'פרסם',c:'pri',f:()=>setMeta({order:out,locked:true}).then(ok=>ok&&toast('התוצאות פורסמו'))}])}
+  else if(t.id==='resLadder'){if(pick.length<2)return toast('בנו קודם את הסדר בסולם');modal(`<h3>לפרסם את הסולם כתוצאות?</h3><p>${pick.slice(0,3).map(esc).join(' · ')} …</p>`,[{t:'ביטול'},{t:'פרסם',c:'pri',f:()=>setMeta({order:pick.slice(),locked:true}).then(ok=>ok&&toast('התוצאות פורסמו'))}])}
+  else if(t.id==='resClr')setMeta({order:[]}).then(ok=>ok&&toast('התוצאות הוסרו'));
+  else if(t.id==='waAdd'){const{name,order}=parseBet($('#waT').value);if(order.length<3)return toast('לא זיהיתי הימור בהודעה');
+    const go=async nm=>{try{await db.collection('bets').doc('wa-'+Date.now().toString(36)).set({name:nm,order,ts:Date.now(),src:'wa'});$('#waT').value='';toast(`ההימור של ${nm} נוסף`)}catch(e){toast('השמירה נכשלה')}};
+    if(name)go(name);else modal('<h3>של מי ההימור?</h3><input type="text" id="waName" placeholder="שם">',[{t:'ביטול'},{t:'הוסף',c:'pri',f:()=>{const v=(document.getElementById('waName')||{}).value;if(v&&v.trim())go(v.trim())}}])}
+  else if(t.id==='plSave'){const l=[...new Set($('#plT').value.split('\n').map(norm).filter(Boolean))];if(l.length<2)return toast('צריך לפחות שני שחקנים');setMeta({players:l}).then(ok=>ok&&toast('הרשימה נשמרה'))}
+  else if(t.id==='newRound')modal('<h3>סבב חדש?</h3><p>כל ההימורים והתוצאות יימחקו, וההימורים ייפתחו מחדש.</p>',[{t:'ביטול'},{t:'מחק הכל',c:'pri',f:async()=>{for(const b of bets.slice()){try{await db.doc('bets/'+b.id).delete()}catch(e){}}await setMeta({order:[],locked:false});toast('מוכן לסבב חדש')}}]);
+});
+$('#name').addEventListener('input',()=>{sv();renderActions()});
+
+/* ---------- boot ---------- */
+render();
+(async()=>{
+  try{if(!window.claude||!window.claude.use)throw 0;[db,user]=await Promise.all([window.claude.use('db'),window.claude.use('user')])}catch(e){}
+  if(user){try{uid=await user.id();isOwn=!!(await user.isOwner());canW=await user.can('data.write')}catch(e){}}
+  if(!db){mode='off';render();return}
+  mode='load';render();
+  const tm=setTimeout(()=>{if(!loaded){mode='slow';render()}},10000);
+  const fail=()=>{clearTimeout(tm);if(!loaded){mode='slow';render()}};
+  db.doc('meta/state').onSnapshot(s=>{const d=s.exists?s.data():null;if(d)meta={players:Array.isArray(d.players)?d.players.map(String):DEF,order:Array.isArray(d.order)?d.order.map(String):[],locked:!!d.locked};else meta={players:DEF,order:[],locked:false};render()},fail);
+  db.collection('bets').onSnapshot(s=>{bets=s.docs.map(d=>{const x=d.data()||{};return{id:d.id,name:String(x.name||'').slice(0,24),order:Array.isArray(x.order)?x.order.map(String):[],ts:+x.ts||0,src:x.src==='wa'?'wa':'direct'}});
+    if(!loaded){loaded=true;mode='on';clearTimeout(tm);const m=mine();if(m&&!pick.length){pick=m.order.slice();if(!$('#name').value)$('#name').value=m.name}}render()},fail);
+})();
+}
+</script>
+</body>
+</html>
