@@ -268,9 +268,59 @@ function viewGame(){
   else{h+=`<h2>טבלה</h2>`+board(st,r)+(up.length>1?`<p class="wait">ממתינים: ${up.slice(1).map(esc).join(' · ')}</p>`:'');
   if(!isQual(st)||st.kind==='soq')h+=`<details><summary>תוצאות המוקדמות</summary>${board(S.stages[0],ranked(S.stages[0]),true)}</details>`}
   if(S.bets.length)h+=`<h2>מובילים בהימורים</h2>${betRows(betBoard(),3)}<div class="acts"><button id="goBets">לכל טבלת ההימורים</button></div>`;
-  return h+(RO?'<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>':`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`)}
+  return h+`<div class="acts" style="margin-top:20px"><button id="imgExp">תמונת מצב לשיתוף</button></div>`+(RO?'<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>':`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`)}
 function waitTable(names,note,cont){return (note?`<h2>טבלת הקליעות</h2><p class="wait" style="margin-top:0">${note}</p>`:'')+'<div class="board" style="margin-top:6px">'+names.map(n=>`<div class="row" style="opacity:.7"><span class="rk">–</span><span class="nm">${esc(n)}<small>${VCUR&&VCUR.n===n&&Date.now()-(VCUR.t||0)<180000?'זורק עכשיו':'עוד לא זרק'}</small></span><span></span><span class="sc">–</span></div>`).join('')+'</div>'}
 function roBetLink(){return !S.lockBets&&!S.podium?`<div class="acts"><button class="pri" id="toBet">רוצים להמר? לחצו כאן</button></div>`:''}
+/* ---------- image export ---------- */
+async function exportImage(){
+  toast('מכין תמונה…');
+  try{await Promise.all(['700 150px Karantina, Rubik, Arial, sans-serif','700 60px Karantina, Rubik, Arial, sans-serif','500 30px Rubik, Arial, sans-serif','700 30px Rubik, Arial, sans-serif','400 26px Rubik, Arial, sans-serif'].map(f=>document.fonts.load(f)))}catch(e){}
+  const W=1080,P=60,C={bg:'#f1dbb3',ink:'#22160c',mut:'#6b543d',card:'#fbf1de',ball:'#f2681c',paint:'#c41f2e',cream:'#f6e9d6',line:'rgba(34,22,12,.13)'};
+  const tall=document.createElement('canvas');tall.width=W;tall.height=6000;const x=tall.getContext('2d');
+  try{x.direction='rtl'}catch(e){}
+  const T=(str,xx,y,font,col,al='right')=>{x.font=font;x.fillStyle=col;x.textAlign=al;x.textBaseline='alphabetic';x.fillText(String(str),xx,y)};
+  const box=(x0,y0,w,h,r,fill,stroke)=>{x.beginPath();if(x.roundRect)x.roundRect(x0,y0,w,h,r);else x.rect(x0,y0,w,h);if(fill){x.fillStyle=fill;x.fill()}if(stroke){x.lineWidth=4;x.strokeStyle=stroke;x.stroke()}};
+  const fit=(str,font,max)=>{x.font=font;let t=String(str);while(t.length>1&&x.measureText(t).width>max)t=t.slice(0,-1);return t===String(str)?t:t+'…'};
+  x.fillStyle=C.bg;x.fillRect(0,0,W,6000);x.fillStyle=C.line;for(let i=54;i<W;i+=55)x.fillRect(i,0,1.5,6000);
+  const done=!!S.podium,st=S.stages.length?stg():null,date=new Date().toLocaleDateString('he-IL');
+  /* header band */
+  box(0,0,W,done?360:300,0,C.ink);
+  T('🏀 תחרות השלשות · '+date,W-P,92,'500 34px Rubik, Arial, sans-serif',C.cream);
+  if(done){T('אלוף הערב',W-P,160,'500 32px Rubik, Arial, sans-serif',C.ball);T(fit(S.podium[0].n,'700 170px Karantina, Rubik, Arial, sans-serif',W-2*P),W-P,300,'700 170px Karantina, Rubik, Arial, sans-serif',C.cream);T(`${S.podium[0].s} נק' בגמר`,P,300,'500 34px Rubik, Arial, sans-serif',C.ball,'left')}
+  else{T(st?st.title:'לפני התחרות',W-P,210,'700 120px Karantina, Rubik, Arial, sans-serif',C.cream);T('תמונת מצב · '+new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),P,210,'500 32px Rubik, Arial, sans-serif',C.ball,'left')}
+  let y=done?420:360;
+  const sec=t=>{T(t,W-P,y+60,'700 64px Karantina, Rubik, Arial, sans-serif',C.ink);y+=90};
+  const rows=(list,hl)=>{let rk=0;list.forEach((r,i)=>{if(i===0||r.s!==list[i-1].s)rk=i+1;const on=i<hl;
+    box(P,y,W-2*P,62,14,C.card,on?C.ball:null);
+    T(rk,W-P-26,y+46,'700 44px Karantina, Rubik, Arial, sans-serif',on?C.ball:C.mut);
+    T(fit(r.n,'700 32px Rubik, Arial, sans-serif',430),W-P-90,y+43,'700 32px Rubik, Arial, sans-serif',C.ink);
+    if(r.mk!=null)T(r.mk,P+250,y+43,'400 26px Rubik, Arial, sans-serif',C.mut,'right'),T('קלע',P+330,y+43,'400 26px Rubik, Arial, sans-serif',C.mut,'right');
+    T(r.s,P+26,y+48,'700 50px Karantina, Rubik, Arial, sans-serif',C.ink,'left');y+=72});y+=20};
+  /* podium */
+  if(done){const p=S.podium,bw=280,gap=34,cx=W/2,hs=[230,170,130],xs=[cx-bw/2,cx+bw/2+gap,cx-bw/2-gap-bw],base=y+400;
+    [1,0,2].forEach(i=>{if(!p[i])return;const bx=xs[i],h=hs[i];box(bx,base-h,bw,h,16,i===0?C.ball:C.ink);
+      T(i+1,bx+bw/2,base-h/2+34,'700 100px Karantina, Rubik, Arial, sans-serif',i===0?'#fff':C.cream,'center');
+      T(fit(p[i].n,'700 64px Karantina, Rubik, Arial, sans-serif',bw),bx+bw/2,base-h-52,'700 64px Karantina, Rubik, Arial, sans-serif',C.ink,'center');T(`${p[i].s} נק'`,bx+bw/2,base-h-14,'500 28px Rubik, Arial, sans-serif',C.mut,'center')});
+    y=base+50}
+  /* tables */
+  const mk=st0=>ranked(st0).map(r=>({n:r.n,s:r.s,mk:made(r.r)}));
+  if(st&&!done&&st!==S.stages[0]){sec(st.title);rows(mk(st),isQual(st)?st.spots:1)}
+  if(S.stages[0]){sec(done||st===S.stages[0]?'טבלת הקליעות':'מוקדמות');const q=mk(S.stages[0]);
+    const wait=st===S.stages[0]?nextUp(st).map(n=>({n,s:'–'})):[];rows(q.concat(wait),S.stages[0].spots)}
+  /* fun numbers */
+  if(done){const fs=funStats().slice(0,4);sec('מספרי הערב');const tw=(W-2*P-24)/2;
+    fs.forEach((f,i)=>{const bx=W-P-tw-(i%2)*(tw+24),by=y+Math.floor(i/2)*174;box(bx,by,tw,156,18,C.card);
+      T(f.k,bx+tw-24,by+42,'400 26px Rubik, Arial, sans-serif',C.mut);T(fit(f.n,'700 60px Karantina, Rubik, Arial, sans-serif',tw-48),bx+tw-24,by+104,'700 60px Karantina, Rubik, Arial, sans-serif',C.ink);T(fit(f.v,'400 26px Rubik, Arial, sans-serif',tw-48),bx+tw-24,by+140,'400 26px Rubik, Arial, sans-serif',C.mut)});
+    y+=Math.ceil(fs.length/2)*174+20}
+  /* bets */
+  const bb=betBoard().slice(0,3);if(bb.length&&bb[0].t>0){sec(done?'אלופי ההימורים':'מובילים בהימורים');rows(bb.map(b=>({n:b.name,s:b.t})),1)}
+  T('נוצר באפליקציית תחרות השלשות',W/2,y+40,'400 24px Rubik, Arial, sans-serif',C.mut,'center');y+=80;
+  const c=document.createElement('canvas');c.width=W;c.height=y;c.getContext('2d').drawImage(tall,0,0);
+  c.toBlob(blob=>{if(!blob){toast('לא הצלחתי ליצור תמונה');return}const url=URL.createObjectURL(blob),fname=`shlashot-${date.replace(/\./g,'-')}.png`,file=new File([blob],fname,{type:'image/png'});
+    const canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+    const dl=()=>{const a=document.createElement('a');a.href=url;a.download=fname;document.body.appendChild(a);a.click();a.remove()};
+    modal(`<h3>התמונה מוכנה</h3><img src="${url}" alt="סיכום תחרות השלשות" style="width:100%;border-radius:12px;display:block"><p class="wait">אפשר גם ללחוץ לחיצה ארוכה על התמונה ולשמור אותה.</p>`,
+      (canShare?[{t:'שתף (וואטסאפ ועוד)',c:'pri',f:()=>navigator.share({files:[file],title:'תחרות השלשות'}).catch(()=>{})}]:[]).concat([{t:'הורד תמונה',c:canShare?'':'pri',f:dl},{t:'סגור'}]))},'image/png')}
 /* ---------- my bet (viewers) ---------- */
 const DK='bets-draft-v1';let PICK=[],MYNAME='',SENT=false,SENDING=false,TABSET=false;
 try{const d=JSON.parse(localStorage.getItem(DK))||{};PICK=Array.isArray(d.pick)?d.pick:[];MYNAME=d.name||'';SENT=localStorage.getItem(DK+'-sent')==='1'}catch(e){}
@@ -311,6 +361,7 @@ function viewChamp(){
   return `<h1>${esc(p[0].n)} אלוף השלשות</h1><p class="sub">${new Date().toLocaleDateString('he-IL')}</p><div class="podium">${pod}</div>
   <h2>מספרי הערב</h2><div class="fun">${fs.map(f=>`<div><small>${f.k}</small><b>${esc(f.n)}</b>${f.v}</div>`).join('')}</div>
   <h2>מוקדמות</h2>${board(S.stages[0],ranked(S.stages[0]),true)}
+  <div class="acts"><button id="imgExp" class="pri">שמור כתמונה</button></div>
   <div class="acts"><button id="cp" class="dk">העתק סיכום</button><a class="btn" id="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(shareText())}">שלח בוואטסאפ</a></div>
   ${RO?'':`<div class="acts"><button id="cpRank">העתק דירוג לטופס ההימורים</button><button id="again" class="pri">תחרות חדשה</button></div>`}`}
 function viewPlayers(){
@@ -551,6 +602,7 @@ $('#view').addEventListener('click',e=>{
   else if(id==='skip'){const st=stg(),n=nextUp(st)[0];st.order=st.order.filter(x=>x!==n).concat(n);render();toast(`${n} עבר לסוף התור`)}
   else if(id==='reset')confirmBox('כל תוצאות הערב יימחקו. ההימורים נשארים.',()=>{S=fresh(S,true);render()});
   else if(id==='again')confirmBox('לפתוח תחרות חדשה? הערב הזה כבר שמור בטבלת העונה, וההימורים יימחקו.',()=>{S=fresh(S);render()});
+  else if(id==='imgExp')exportImage();
   else if(id==='goBets'){S.tab='bets';render();scrollTo(0,0)}
   else if(id==='toBet'){S.tab='mybet';TABSET=true;render();scrollTo(0,0)}
   else if(id==='sendB')sendBet();
