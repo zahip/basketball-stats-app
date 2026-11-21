@@ -175,7 +175,7 @@ if(!Array.isArray(S.bets))S.bets=[];
 let season=load(SKEY,[]);
 const save=()=>{store(KEY,S);pushLive()};
 let R=null,moneyPick=4;
-let SYNC=false,REMOTE=null,roundBase=0,remoteRev=0,lastSKey='',lastBKey='',lastCurKey='',lastCurPub=0,pubT=null,pubBusy=false,netOk=true;
+let SYNC=false,REMOTE=null,roundBase=0,remoteRev=0,remoteBrev=0,lastSKey='',lastBKey='',lastCurKey='',lastCurPub=0,pubT=null,pubBusy=false,netOk=true;
 const NT='https://ntfy.sh/',TOP='shlashot-1379e238c69c763f',TS=TOP+'-s',TB=TOP+'-b',TI=TOP+'-in',MKEY='manage-6e88fd6cd1';
 const VIEW_URL='https://raw.githack.com/zahip/basketball-stats-app/shlashot/live.html';
 const ME=(()=>{try{let d=localStorage.getItem('shootout-dev');if(!d){d=Math.random().toString(36).slice(2);localStorage.setItem('shootout-dev',d)}return d}catch(e){return Math.random().toString(36).slice(2)}})();
@@ -349,6 +349,8 @@ function viewBets(){
   <h2>הוספת הימורים</h2><div class="card"><p class="wait" style="margin-top:0">הימורים שנשלחים מהטופס נכנסים לכאן לבד. הודעות שהגיעו בוואטסאפ — הדביקו כאן, אפשר כמה ביחד.</p><textarea id="betT" placeholder="🏀 הימור שלשות – דודו&#10;1. צחי&#10;2. עומר&#10;…"></textarea><div class="acts"><button class="pri" id="betAdd">הוסף הימורים</button></div></div>
   <h2>קישורים</h2><div class="card"><p style="margin:0 0 4px"><b>לייב לכולם</b></p><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${VIEW_URL}</p><div class="acts"><button id="viewCp">העתק קישור לייב</button></div>
   <p style="margin:14px 0 4px"><b>קישור מנהל</b> — רק למי שמותר לו לעדכן</p><div class="acts"><button id="mgrCp">העתק קישור מנהל</button></div></div>
+  <h2>גיבוי</h2><div class="card"><p class="wait" style="margin-top:0">כל ההימורים, התוצאות וההגדרות בטקסט אחד. שמרו אותו אצלכם, ואפשר לשחזר ממנו בכל מכשיר.</p>
+  <div class="acts"><button id="bkCopy" class="dk">העתק גיבוי מלא</button><a class="btn" id="bkWa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(backupText())}">שלח גיבוי לעצמי בוואטסאפ</a><button id="bkRestore">שחזור מגיבוי</button></div></div>
   <h2>הטופס לחברים</h2><div class="card"><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${FORM_URL}</p><div class="acts"><button id="formCp">העתק קישור</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('🏀 הימורי תחרות השלשות פתוחים! דרגו את כל המשתתפים:\n'+FORM_URL+'\n\n📺 התחרות בלייב:\n'+VIEW_URL)}">שלח לקבוצה</a></div></div>`}
 function betDetail(nm){
   const b=S.bets.find(x=>x.name===nm);if(!b)return;const res=currentRank(),ord=res.length?b.order.filter(n=>res.includes(n)):b.order,sc=res.length?scoreBet(b.order,res):{t:0};
@@ -356,6 +358,12 @@ function betDetail(nm){
   modal(`<h3>${esc(b.name)} · ${sc.t}</h3><div class="scroll"><table class="tbl"><thead><tr><th class="n">הימור</th><th>שחקן</th><th class="n">כרגע</th><th class="n">נק׳</th></tr></thead><tbody>${rows}</tbody></table></div><p class="wait">ההימור המלא: ${b.order.map(esc).join(' · ')}</p>`,
     [{t:'סגור'},{t:'מחק הימור',f:()=>confirmBox(`למחוק את ההימור של ${esc(b.name)}?`,()=>{S.bets=S.bets.filter(x=>x!==b);render()})}])}
 
+/* ---------- full backup ---------- */
+function backupText(){const{tab,seen,...x}=S;return 'גיבוי תחרות שלשות '+new Date().toLocaleString('he-IL')+'\n'+JSON.stringify({k:'shlashot',v:1,S:x,season})}
+function restoreFrom(txt){try{const i=txt.indexOf('{');const d=JSON.parse(txt.slice(i));if(d.k!=='shlashot'||!d.S||!Array.isArray(d.S.players))throw 0;
+  S={...fresh(),...d.S,tab:'bets',seen:S.seen||[],rev:Math.max(d.S.rev||0,remoteRev),brev:Math.max(d.S.brev||0,remoteBrev)};if(!Array.isArray(S.bets))S.bets=[];
+  if(Array.isArray(d.season)){const ids=new Set(season.map(x=>x.id));d.season.forEach(x=>{if(x&&x.id&&!ids.has(x.id))season.push(x)});season.sort((a,b)=>b.id-a.id);store(SKEY,season)}
+  lastSKey='';lastBKey='';render();toast(`שוחזר: ${S.bets.length} הימורים${S.stages.length?' ותוצאות התחרות':''}`)}catch(e){toast('הטקסט לא נראה כמו גיבוי מלא')}}
 /* ---------- live sync over ntfy.sh: managers publish, everyone watches ---------- */
 const curInfo=()=>R?{n:R.n,s:score(R),st:R.state,by:ME,t:Date.now()}:null;
 const otherCur=()=>{const c=REMOTE&&REMOTE.cur;return c&&c.by!==ME&&Date.now()-(c.t||0)<180000?c:null};
@@ -378,10 +386,10 @@ async function publishNow(){
   if(due){if(sk!==lastSKey)S.rev=Math.max(S.rev||0,remoteRev)+1;const msg={v:S.rev||0,t:now,cur:c,...core};
     if(await post(TS,msg)){lastSKey=sk;lastCurKey=ck;lastCurPub=now;remoteRev=Math.max(remoteRev,S.rev||0);REMOTE={...msg};store(KEY,S)}else setTimeout(pushLive,15000)}
   const bc=encBets(),bk=JSON.stringify(bc);
-  if(bk!==lastBKey){S.brev=(S.brev||0)+1;if(await post(TB,{v:S.brev,t:now,...bc})){lastBKey=bk;store(KEY,S)}else setTimeout(pushLive,15000)}
+  if(bk!==lastBKey){S.brev=Math.max(S.brev||0,remoteBrev)+1;if(await post(TB,{v:S.brev,t:now,...bc})){lastBKey=bk;store(KEY,S)}else setTimeout(pushLive,15000)}
   pubBusy=false}
 function adoptState(d){const keep={tab:S.tab,bets:S.bets,brev:S.brev,lockBets:S.lockBets,seen:S.seen};S={...decS(d),...keep,rev:d.v||0};lastSKey=JSON.stringify(encCore());store(KEY,S)}
-function adoptBets(d){S.bets=decBets(d);S.brev=d.v||0;S.lockBets=!!d.lk;lastBKey=JSON.stringify(encBets());store(KEY,S)}
+function adoptBets(d){remoteBrev=Math.max(remoteBrev,d.v||0);S.bets=decBets(d);S.brev=d.v||0;S.lockBets=!!d.lk;lastBKey=JSON.stringify(encBets());store(KEY,S)}
 function upsertBet(m,id){if(S.lockBets||!m||!m.name||!Array.isArray(m.order))return false;S.seen=S.seen||[];if(id){if(S.seen.includes(id))return false;S.seen.push(id);if(S.seen.length>400)S.seen.splice(0,100)}
   const names=S.players.map(p=>p.n),order=m.order.map(String).filter(n=>names.includes(n)).filter((n,i,a)=>a.indexOf(n)===i);if(order.length<3)return false;
   const name=nrm(m.name).slice(0,24);const i=S.bets.findIndex(x=>nrm(x.name)===name);const b={name,order,ts:m.ts||Date.now()};if(i>=0)S.bets[i]=b;else S.bets.push(b);return true}
@@ -411,12 +419,12 @@ async function managerSync(){
   SYNC=true;
   const[a,b]=await Promise.all([latest(TS),latest(TB)]);
   if(a&&a.p){remoteRev=a.v||0;REMOTE=a;if((a.v||0)>(S.rev||0)&&!R)adoptState(a)}
-  if(b&&b.n&&(b.v||0)>(S.brev||0))adoptBets(b);
+  if(b&&b.n){remoteBrev=b.v||0;if((b.v||0)>(S.brev||0))adoptBets(b)}
   const subs=await allSince(TI);let n=0;subs.forEach(m=>{try{if(upsertBet(JSON.parse(m.message),m.id))n++}catch(e){}});if(n)toast(`נקלטו ${n} הימורים מהטופס`);
   if(!R)render();pushLive();
   listen([TS,TB,TI],(tp,d,id)=>{
     if(tp===TS){if(!d||!d.p)return;const had=!!otherCur();REMOTE=d;remoteRev=Math.max(remoteRev,d.v||0);if((d.v||0)>(S.rev||0)){if(!R){adoptState(d);render()}}else if(!R&&had!==!!otherCur()&&S.tab==='game')render()}
-    else if(tp===TB){if(d&&d.n&&(d.v||0)>(S.brev||0)){adoptBets(d);if(!R)render()}}
+    else if(tp===TB){if(d&&d.n)remoteBrev=Math.max(remoteBrev,d.v||0);if(d&&d.n&&(d.v||0)>(S.brev||0)){adoptBets(d);if(!R)render()}}
     else if(upsertBet(d,id)){toast(`הימור חדש: ${d.name}`);if(!R)render();pushLive()}});
   setInterval(()=>{if(!R&&REMOTE&&REMOTE.cur&&!otherCur()&&S.tab==='game'&&$('#otherBusy'))render()},20000)}
 function detail(si,n){
@@ -491,6 +499,8 @@ $('#view').addEventListener('click',e=>{
   else if(id==='goBets'){S.tab='bets';render();scrollTo(0,0)}
   else if(id==='formCp')copy(FORM_URL);
   else if(id==='viewCp')copy(VIEW_URL);
+  else if(id==='bkCopy')copy(backupText());
+  else if(id==='bkRestore')modal('<h3>שחזור מגיבוי</h3><p class="wait">הדביקו את טקסט הגיבוי המלא. הוא יחליף את מה שיש עכשיו באפליקציה ויתעדכן אצל כולם.</p><textarea id="restoreT"></textarea>',[{t:'ביטול'},{t:'שחזר',c:'pri',f:()=>{const v=(document.getElementById('restoreT')||{}).value||'';confirmBox('לשחזר? המצב הנוכחי יוחלף.',()=>restoreFrom(v))}}]);
   else if(id==='mgrCp')copy(VIEW_URL+'#'+MKEY);
   else if(id==='lockBets'){S.lockBets=!S.lockBets;render();toast(S.lockBets?'ההימורים ננעלו':'ההימורים נפתחו')}
   else if(id==='betAdd'){const got=parseBets($('#betT').value);if(!got.length){toast('לא זיהיתי הימורים בטקסט');return}
