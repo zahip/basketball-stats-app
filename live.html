@@ -133,6 +133,24 @@ a.btn{display:flex;align-items:center;justify-content:center;min-height:44px;bor
 #conf{position:fixed;inset:0;pointer-events:none;z-index:45;width:100%;height:100%}
 .empty{color:var(--mut);text-align:center;padding:20px}
 div.row{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
+.poolbox{position:sticky;top:0;z-index:3;background:var(--bg);padding:10px 0;border-bottom:2px solid var(--ink)}
+.poolbox p{margin:0 0 6px;font-size:14px;color:var(--mut);display:flex;justify-content:space-between;gap:8px;align-items:center}
+.poolbox p button{min-height:36px;font-size:14px;padding:0 12px}
+#pool{display:flex;flex-wrap:wrap;gap:6px}
+#pool button{background:var(--ink);color:var(--bg);box-shadow:none;font-weight:500}
+#pool .ok{color:var(--wa);font-weight:700;min-height:44px;display:flex;align-items:center}
+#ladder{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:5px}
+.sl{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:50px;background:var(--card);border-radius:12px;padding:3px 6px 3px 4px;box-shadow:inset 0 0 0 1.5px var(--line)}
+.sl .pos{font:700 30px/1 Karantina,sans-serif;text-align:center;color:var(--mut)}
+.sl .nm{font-weight:500;font-size:18px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sl.top{box-shadow:inset 0 0 0 2px var(--paint)}.sl.top .pos{color:var(--paint)}
+.sl.top:first-child{background:var(--paint);color:#fff}.sl.top:first-child .pos{color:#fff}
+.sl.next{box-shadow:inset 0 0 0 2px var(--ball)}.sl.next .nm{color:var(--mut);font-weight:400;font-size:15px}
+.sl:not(.f):not(.next) .nm{color:transparent}
+.ctl{display:flex;gap:4px}.ctl button{min-width:40px;min-height:40px;padding:0;border-radius:10px;font-size:14px}
+.sl.top:first-child .ctl button{background:#ffffff26;color:#fff;box-shadow:none}
+.divider{font-size:13px;color:var(--paint);font-weight:700;display:flex;gap:8px;align-items:center}.divider::after{content:"";flex:1;border-top:2px dashed currentColor}
+.field{display:grid;gap:6px;margin-top:16px}.field label{font-weight:500}.field input{width:100%;min-height:48px;border-radius:12px;border:1.5px solid var(--line);background:var(--card);padding:0 12px;font-size:16px}
 .livedot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--paint);margin-inline-end:6px;animation:beat 1.4s infinite}
 @keyframes beat{50%{transform:scale(1.08)}}
 @media (prefers-reduced-motion:reduce){.tnum.low{animation:none}*{transition:none!important}}
@@ -142,7 +160,7 @@ div.row{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
 <body>
 <header class="top">
   <div class="brand"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="#f2681c" stroke="#7a2e05" stroke-width="2"/><path d="M2 15h26M15 2v26M6 6c5 4 5 14 0 18M24 6c-5 4-5 14 0 18" fill="none" stroke="#7a2e05" stroke-width="1.6"/></svg><b>שלשות</b><span>תחרות הליגה של הקבוצה</span></div>
-  <nav id="tabs"><button data-t="game">תחרות</button><button data-t="bets">הימורים</button><button data-t="players">שחקנים</button><button data-t="season">עונה</button></nav>
+  <nav id="tabs"><button data-t="mybet" hidden>להמר</button><button data-t="game">תחרות</button><button data-t="bets">הימורים</button><button data-t="players">שחקנים</button><button data-t="season">עונה</button></nav>
 </header>
 <main id="view"></main>
 
@@ -173,7 +191,8 @@ const fresh=(old,keepBets)=>({players:old?old.players:DEF.map(n=>({n,on:true})),
 let S=load(KEY,null)||fresh();
 if(!Array.isArray(S.bets))S.bets=[];
 let season=load(SKEY,[]);
-const save=()=>{store(KEY,S);pushLive()};
+let RO=false,VCUR=null,VT=0;
+const save=()=>{if(RO)return;store(KEY,S);pushLive()};
 let R=null,moneyPick=4;
 let SYNC=false,REMOTE=null,roundBase=0,remoteRev=0,remoteBrev=0,lastSKey='',lastBKey='',lastCurKey='',lastCurPub=0,pubT=null,pubBusy=false,netOk=true;
 const NT='https://ntfy.sh/',TOP='shlashot-1379e238c69c763f',TS=TOP+'-s',TB=TOP+'-b',TI=TOP+'-in',MKEY='manage-6e88fd6cd1';
@@ -225,34 +244,60 @@ function courtSVG(r){
   return g+'</svg>'}
 
 /* ---------- views ---------- */
-function render(){document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));const v=$('#view'),keep=$('#betT')?$('#betT').value:'';v.innerHTML=S.tab==='players'?viewPlayers():S.tab==='season'?viewSeason():S.tab==='bets'?viewBets():viewGame();if(keep&&$('#betT'))$('#betT').value=keep;save()}
+function render(){if(RO&&!['game','bets','mybet'].includes(S.tab))S.tab='game';document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));const v=$('#view'),keep=$('#betT')?$('#betT').value:'';v.innerHTML=S.tab==='players'?viewPlayers():S.tab==='season'?viewSeason():S.tab==='bets'?viewBets():S.tab==='mybet'?viewMyBet():viewGame();if(keep&&$('#betT'))$('#betT').value=keep;save()}
 function viewGame(){
   if(!S.stages.length){const p=present();
     return `<h1>ערב שלשות</h1><p class="sub">${new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'})} · ${p.length} משתתפים</p>
     <div class="card"><div class="court">${courtSVG(null)}</div><ul class="rules"><li><b>5</b> עמדות × <b>5</b> כדורים</li><li>כדור אחרון בעמדה = <b>2</b></li><li>שלושת רבע = <b>3</b></li><li>חצי מגרש = <b>5</b></li><li><b>${S.cfg.sec}</b> שניות לסיבוב</li><li><b>${S.cfg.fin}</b> ראשונים לגמר</li>${S.cfg.money?'<li>עמדת כסף: כל הכדורים = <b>2</b></li>':''}<li>מקסימום <b>${maxScore(S.cfg.money?0:null)}</b></li></ul></div>
     <h2>סדר הזריקה</h2>${p.length?`<ol class="order" id="ord">${p.map(n=>`<li>${esc(n)}</li>`).join('')}</ol>`:'<p class="empty">אין משתתפים. הוסיפו בלשונית שחקנים.</p>'}
-    <div class="acts"><button id="draw" class="big">הגרל סדר</button><button id="start" class="pri big" ${p.length?'':'disabled'}>התחל תחרות</button></div>`}
+    ${RO?roBetLink():`<div class="acts"><button id="draw" class="big">הגרל סדר</button><button id="start" class="pri big" ${p.length?'':'disabled'}>התחל תחרות</button></div>`}`}
   if(S.podium)return viewChamp();
   const st=stg(),up=nextUp(st),done=Object.keys(st.res).length,r=ranked(st);
   let tgt='';
   if(isQual(st)){const k=st.spots;tgt=r.length<k?`כרגע כל תוצאה נכנסת ל־${k} הראשונים`:`יעד: ${r[k-1].s+1} לעלייה ישירה · ${r[k-1].s} לשוויון`}
   else tgt=r.length?`יעד לאליפות: ${r[0].s+1}`:'פותח את הגמר';
-  let h=`<h1>${st.title}</h1><p class="sub">${done} מתוך ${st.order.length} זרקו${isQual(st)?` · ${st.spots} עולים לגמר`:''}</p>`;
-  if(up[0])h+=`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(up[0])}</div><div class="then">${up.length>1?'אחריו: '+up.slice(1,3).map(esc).join(' · '):'אחרון בשלב'}</div><div class="tgt">${tgt}</div>
+  let h=`<h1>${st.title}</h1><p class="sub">${RO?'<span class="livedot"></span>לייב · ':''}${done} מתוך ${st.order.length} זרקו${isQual(st)?` · ${st.spots} עולים לגמר`:''}</p>`;
+  if(RO)h+=roDeck(up,tgt)+roBetLink();
+  else if(up[0])h+=`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(up[0])}</div><div class="then">${up.length>1?'אחריו: '+up.slice(1,3).map(esc).join(' · '):'אחרון בשלב'}</div><div class="tgt">${tgt}</div>
     ${S.cfg.money?`<div class="then">עמדת הכסף שלו</div><div class="chips" id="mchips">${[0,1,2,3,4].map(i=>`<button data-m="${i}" class="${i===moneyPick?'on':''}">${i+1}</button>`).join('')}</div>`:''}
     ${otherCur()?`<div class="tgt" id="otherBusy">${esc(otherCur().n)} זורק עכשיו — מנהל אחר מנקד (${otherCur().s} נק')</div>`:''}
     <div class="acts"><button class="pri big" id="go" ${otherCur()?'disabled':''}>התחל סיבוב</button><button id="skip">דלג לסוף התור</button></div></section>`;
   h+=`<h2>טבלה</h2>`+board(st,r)+(up.length>1?`<p class="wait">ממתינים: ${up.slice(1).map(esc).join(' · ')}</p>`:'');
   if(!isQual(st)||st.kind==='soq')h+=`<details><summary>תוצאות המוקדמות</summary>${board(S.stages[0],ranked(S.stages[0]),true)}</details>`;
   if(S.bets.length)h+=`<h2>מובילים בהימורים</h2>${betRows(betBoard(),3)}<div class="acts"><button id="goBets">לכל טבלת ההימורים</button></div>`;
-  return h+`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`}
+  return h+(RO?'<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>':`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`)}
+function roBetLink(){return !S.lockBets&&!S.podium?`<div class="acts"><button class="pri" id="toBet">רוצים להמר? לחצו כאן</button></div>`:''}
+/* ---------- my bet (viewers) ---------- */
+const DK='bets-draft-v1';let PICK=[],MYNAME='',SENT=false,SENDING=false,TABSET=false;
+try{const d=JSON.parse(localStorage.getItem(DK))||{};PICK=Array.isArray(d.pick)?d.pick:[];MYNAME=d.name||'';SENT=localStorage.getItem(DK+'-sent')==='1'}catch(e){}
+const svDraft=()=>{try{localStorage.setItem(DK,JSON.stringify({pick:PICK,name:MYNAME}))}catch(e){}};
+function betNoteText(){const P=S.players.length,full=PICK.length===P;return SENT?'ההימור נקלט! אפשר לשנות ולשלוח שוב עד שההימורים ננעלים.':!full?`עוד ${P-PICK.length} שחקנים לדרג.`:!MYNAME.trim()?'רק השם שלך חסר.':'מוכן לשליחה.'}
+function viewMyBet(){
+  const P=S.players.map(p=>p.n);PICK=PICK.filter((n,i)=>P.includes(n)&&PICK.indexOf(n)===i);const L=S.lockBets,ok=PICK.length===P.length&&MYNAME.trim();
+  const ladder=P.map((_,i)=>{const n=PICK[i],top=i<3?' top':'';
+    const row=n?`<li class="sl f${top}"><span class="pos">${i+1}</span><span class="nm">${esc(n)}</span>${L?'':`<span class="ctl"><button data-up="${i}" ${i?'':'disabled'} aria-label="הזז את ${esc(n)} למעלה">▲</button><button data-dn="${i}" ${i<PICK.length-1?'':'disabled'} aria-label="הזז את ${esc(n)} למטה">▼</button><button data-x="${i}" aria-label="הסר את ${esc(n)}">✕</button></span>`}</li>`
+      :`<li class="sl${i===PICK.length&&!L?' next':''}${top}"><span class="pos">${i+1}</span><span class="nm">${i===PICK.length&&!L?(i===0?'מי האלוף?':'הקישו על השחקן הבא'):'·'}</span></li>`;
+    return row+(i===2&&P.length>3?'<li class="divider">קו הגמר</li>':'')}).join('');
+  const rest=P.filter(n=>!PICK.includes(n));
+  return `<h1>ההימור שלי</h1><p class="sub">${L?'ההימורים נעולים — התחרות התחילה. בהצלחה!':'דרגו את כל המשתתפים לפי הסדר שבו יסיימו. הראשון שתבחרו הוא האלוף.'}</p>
+  <ul class="rules"><li>מיקום מדויק <b>3</b></li><li>פספוס במקום אחד <b>1</b></li><li>אלוף נכון <b>+5</b></li><li>כל עולה לגמר נכון <b>+2</b></li></ul>
+  ${L?'':`<div class="poolbox"><p><span>${PICK.length?`דירגתם ${PICK.length} מתוך ${P.length}`:'הקישו על השחקנים לפי הסדר'}</span><span><button id="rnd">השלם אקראית</button> <button id="clr">נקה</button></span></p><div id="pool">${rest.length?rest.map(n=>`<button data-add="${esc(n)}">${esc(n)}</button>`).join(''):'<span class="ok">כל השחקנים מדורגים</span>'}</div></div>`}
+  <ol id="ladder">${ladder}</ol>
+  ${L?'':`<div class="field"><label for="myName">השם שלך</label><input type="text" id="myName" maxlength="24" autocomplete="nickname" placeholder="למשל: דודו" value="${esc(MYNAME)}"></div>
+  <div class="acts"><button class="pri big" id="sendB" ${ok&&!SENDING?'':'disabled'}>${SENT?'עדכן הימור':'שלח הימור'}</button></div><p class="wait" id="betNote">${betNoteText()}</p>`}`}
+async function sendBet(){const P=S.players.map(p=>p.n);if(!MYNAME.trim()||PICK.length!==P.length||SENDING||S.lockBets)return;SENDING=true;render();
+  const ok=await post(TI,{name:MYNAME.trim(),order:PICK.slice(),ts:Date.now()});SENDING=false;
+  if(ok){SENT=true;try{localStorage.setItem(DK+'-sent','1')}catch(e){}toast('ההימור נשלח! הוא יופיע בטבלת ההימורים')}render()}
+function roDeck(up,tgt){const c=VCUR&&Date.now()-(VCUR.t||0)<180000?VCUR:null;
+  if(c)return `<section class="card deck"><div class="lbl">${c.st==='run'?'זורק עכשיו':c.st==='over'?'סיים את הסיבוב':'מתכונן לזרוק'}</div><div class="who">${esc(c.n)}</div><div class="who" style="color:var(--ball)">${c.s}</div>${c.b?`<div class="then">קלע ${made(curRack(c))} מתוך ${c.b.replace(/-/g,'').length} זריקות</div><div class="court" style="background:var(--bg);border-radius:14px;padding:6px;margin-top:8px">${courtSVG(curRack(c))}</div>`:''}<div class="tgt">${tgt}</div></section>`;
+  return up[0]?`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(up[0])}</div><div class="then">${up.length>1?'אחריו: '+up.slice(1,3).map(esc).join(' · '):'אחרון בשלב'}</div><div class="tgt">${tgt}</div></section>`:''}
 function board(st,r,ro){
   if(!r.length)return '<p class="empty">עוד אין תוצאות</p>';
   const k=isQual(st)?st.spots:1,cut=r.length>=k?r[k-1].s:-1,mx=maxScore(S.cfg.money?0:null);
   let h='<div class="board">',rank=0;
   r.forEach((x,i)=>{if(i===0||x.s!==r[i-1].s)rank=i+1;const inQ=st.kind==='q'&&S.qual.includes(x.n);
     const cls=x.s>cut||(x.s===cut&&r.filter(y=>y.s===cut).length+r.filter(y=>y.s>cut).length<=k)?'q':x.s===cut&&r.length>k?'tie':'';
-    h+=`<button class="row ${cls}" data-d="${S.stages.indexOf(st)}|${esc(x.n)}"><span class="rk">${rank}</span><span class="nm">${esc(x.n)}${inQ?'<small>בגמר</small>':''}${x.r.money!=null?`<small>כסף ${x.r.money+1}</small>`:''}</span><span class="bar"><i style="width:${Math.round(x.s/mx*100)}%"></i></span><span class="sc">${x.s}</span></button>`;
+    h+=`<button class="row ${cls}" data-d="${S.stages.indexOf(st)}|${esc(x.n)}"><span class="rk">${rank}</span><span class="nm">${esc(x.n)}${inQ?'<small>בגמר</small>':''}<small>קלע ${made(x.r)}</small>${x.r.money!=null?`<small>כסף ${x.r.money+1}</small>`:''}</span><span class="bar"><i style="width:${Math.round(x.s/mx*100)}%"></i></span><span class="sc">${x.s}</span></button>`;
     if(i===k-1&&r.length>k&&isQual(st))h+=`<div class="cut">קו הגמר</div>`});
   return h+'</div>'}
 function viewChamp(){
@@ -263,7 +308,7 @@ function viewChamp(){
   <h2>מספרי הערב</h2><div class="fun">${fs.map(f=>`<div><small>${f.k}</small><b>${esc(f.n)}</b>${f.v}</div>`).join('')}</div>
   <h2>מוקדמות</h2>${board(S.stages[0],ranked(S.stages[0]),true)}
   <div class="acts"><button id="cp" class="dk">העתק סיכום</button><a class="btn" id="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(shareText())}">שלח בוואטסאפ</a></div>
-  <div class="acts"><button id="cpRank">העתק דירוג לטופס ההימורים</button><button id="again" class="pri">תחרות חדשה</button></div>`}
+  ${RO?'':`<div class="acts"><button id="cpRank">העתק דירוג לטופס ההימורים</button><button id="again" class="pri">תחרות חדשה</button></div>`}`}
 function viewPlayers(){
   const c=S.cfg,running=S.stages.length&&!S.podium,tg=(k,l)=>`<div class="field"><span>${l}</span><button class="tg ${c[k]?'on':''}" data-tg="${k}" role="switch" aria-checked="${!!c[k]}" aria-label="${l}"></button></div>`;
   return `<h1>שחקנים</h1><p class="sub">${running?'התחרות רצה — שינויים ייכנסו לתחרות הבאה.':'סמנו מי הגיע הערב.'}</p>
@@ -344,19 +389,19 @@ function viewBets(){
   const bb=betBoard(),live=S.stages.length&&!S.podium;
   return `<h1>הימורים</h1><p class="sub">${S.bets.length} מהמרים · ${S.podium?'תוצאה סופית':live?'מתעדכן אחרי כל סיבוב, לפי "אם התחרות הייתה נגמרת עכשיו"':'הנקודות יתחילו לזוז אחרי הסיבוב הראשון'}</p>
   <ul class="rules" style="margin-bottom:14px"><li>מיקום מדויק <b>3</b></li><li>פספוס במקום אחד <b>1</b></li><li>אלוף נכון <b>+5</b></li><li>כל עולה לגמר נכון <b>+2</b></li></ul>
-  ${bb.length?betRows(bb)+`<div class="acts"><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(betShare())}">שלח מצב הימורים בוואטסאפ</a></div>`:'<p class="empty card">עוד אין הימורים. שלחו לחברים את הטופס, והדביקו כאן את מה שהם שולחים בוואטסאפ.</p>'}
-  <div class="acts"><button id="lockBets" class="${S.lockBets?'':'pri'}">${S.lockBets?'פתח הימורים מחדש':'נעל הימורים'}</button></div>
+  ${bb.length?betRows(bb)+`<div class="acts"><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(betShare())}">שלח מצב הימורים בוואטסאפ</a></div>`:`<p class="empty card">${RO?'עוד אין הימורים.':'עוד אין הימורים. שלחו לחברים את הטופס, והדביקו כאן את מה שהם שולחים בוואטסאפ.'}</p>`}
+  ${RO?roBetLink()+'<p class="wait">הקישו על מהמר כדי לראות את ההימור שלו מול המצב בתחרות.</p>':''}${RO?'':`  <div class="acts"><button id="lockBets" class="${S.lockBets?'':'pri'}">${S.lockBets?'פתח הימורים מחדש':'נעל הימורים'}</button></div>
   <h2>הוספת הימורים</h2><div class="card"><p class="wait" style="margin-top:0">הימורים שנשלחים מהטופס נכנסים לכאן לבד. הודעות שהגיעו בוואטסאפ — הדביקו כאן, אפשר כמה ביחד.</p><textarea id="betT" placeholder="🏀 הימור שלשות – דודו&#10;1. צחי&#10;2. עומר&#10;…"></textarea><div class="acts"><button class="pri" id="betAdd">הוסף הימורים</button></div></div>
   <h2>קישורים</h2><div class="card"><p style="margin:0 0 4px"><b>לייב לכולם</b></p><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${VIEW_URL}</p><div class="acts"><button id="viewCp">העתק קישור לייב</button></div>
   <p style="margin:14px 0 4px"><b>קישור מנהל</b> — רק למי שמותר לו לעדכן</p><div class="acts"><button id="mgrCp">העתק קישור מנהל</button></div></div>
   <h2>גיבוי</h2><div class="card"><p class="wait" style="margin-top:0">כל ההימורים, התוצאות וההגדרות בטקסט אחד. שמרו אותו אצלכם, ואפשר לשחזר ממנו בכל מכשיר.</p>
   <div class="acts"><button id="bkCopy" class="dk">העתק גיבוי מלא</button><a class="btn" id="bkWa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(backupText())}">שלח גיבוי לעצמי בוואטסאפ</a><button id="bkRestore">שחזור מגיבוי</button></div></div>
-  <h2>הטופס לחברים</h2><div class="card"><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${FORM_URL}</p><div class="acts"><button id="formCp">העתק קישור</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('🏀 הימורי תחרות השלשות פתוחים! דרגו את כל המשתתפים:\n'+FORM_URL+'\n\n📺 התחרות בלייב:\n'+VIEW_URL)}">שלח לקבוצה</a></div></div>`}
+  <h2>הטופס לחברים</h2><div class="card"><p class="wait" style="margin-top:0;overflow-wrap:anywhere">${FORM_URL}</p><div class="acts"><button id="formCp">העתק קישור</button><a class="btn" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('🏀 הימורי תחרות השלשות פתוחים! דרגו את כל המשתתפים:\n'+FORM_URL+'\n\n📺 התחרות בלייב:\n'+VIEW_URL)}">שלח לקבוצה</a></div></div>`}`}
 function betDetail(nm){
   const b=S.bets.find(x=>x.name===nm);if(!b)return;const res=currentRank(),ord=res.length?b.order.filter(n=>res.includes(n)):b.order,sc=res.length?scoreBet(b.order,res):{t:0};
   const rows=ord.map((n,i)=>{const a=res.indexOf(n),d=a<0?null:Math.abs(a-i);return `<tr${d===0?' style="color:var(--ball);font-weight:700"':''}><td class="n">${i+1}</td><td>${esc(n)}</td><td class="n">${a<0?'—':a+1}</td><td class="n">${d===0?3:d===1?1:0}</td></tr>`}).join('');
   modal(`<h3>${esc(b.name)} · ${sc.t}</h3><div class="scroll"><table class="tbl"><thead><tr><th class="n">הימור</th><th>שחקן</th><th class="n">כרגע</th><th class="n">נק׳</th></tr></thead><tbody>${rows}</tbody></table></div><p class="wait">ההימור המלא: ${b.order.map(esc).join(' · ')}</p>`,
-    [{t:'סגור'},{t:'מחק הימור',f:()=>confirmBox(`למחוק את ההימור של ${esc(b.name)}?`,()=>{S.bets=S.bets.filter(x=>x!==b);render()})}])}
+    [{t:'סגור'}].concat(RO?[]:[{t:'מחק הימור',f:()=>confirmBox(`למחוק את ההימור של ${esc(b.name)}?`,()=>{S.bets=S.bets.filter(x=>x!==b);render()})}]))}
 
 /* ---------- full backup ---------- */
 function backupText(){const{tab,seen,...x}=S;return 'גיבוי תחרות שלשות '+new Date().toLocaleString('he-IL')+'\n'+JSON.stringify({k:'shlashot',v:1,S:x,season})}
@@ -365,7 +410,9 @@ function restoreFrom(txt){try{const i=txt.indexOf('{');const d=JSON.parse(txt.sl
   if(Array.isArray(d.season)){const ids=new Set(season.map(x=>x.id));d.season.forEach(x=>{if(x&&x.id&&!ids.has(x.id))season.push(x)});season.sort((a,b)=>b.id-a.id);store(SKEY,season)}
   lastSKey='';lastBKey='';render();toast(`שוחזר: ${S.bets.length} הימורים${S.stages.length?' ותוצאות התחרות':''}`)}catch(e){toast('הטקסט לא נראה כמו גיבוי מלא')}}
 /* ---------- live sync over ntfy.sh: managers publish, everyone watches ---------- */
-const curInfo=()=>R?{n:R.n,s:score(R),st:R.state,by:ME,t:Date.now()}:null;
+const curInfo=()=>R?{n:R.n,s:score(R),st:R.state,by:ME,t:Date.now(),b:R.balls.map(x=>x===null?'-':x).join('')+(R.b3===null?'-':R.b3)+(R.b5===null?'-':R.b5),m:R.money}:null;
+const curRack=c=>{const a=(c.b||'').split('').map(x=>x==='-'?null:+x);return{balls:a.slice(0,25).concat(Array(25).fill(null)).slice(0,25),b3:a[25]??null,b5:a[26]??null,money:c.m??null}};
+const made=r=>r.balls.filter(x=>x===1).length+(r.b3===1?1:0)+(r.b5===1?1:0);
 const otherCur=()=>{const c=REMOTE&&REMOTE.cur;return c&&c.by!==ME&&Date.now()-(c.t||0)<180000?c:null};
 function encCore(){return{p:S.players.map(p=>[p.n,p.on?1:0]),c:S.cfg,o:S.order,q:S.qual,pd:S.podium?S.podium.map(x=>[x.n,x.s]):null,bl:S.betLead||'',rec:S.rec?1:0,
   g:S.stages.map(st=>({k:st.kind,ti:st.title,o:st.order,sp:st.spots,r:Object.fromEntries(Object.entries(st.res).map(([n,r])=>[n,r.balls.join('')+(r.b3?1:0)+(r.b5?1:0)+(r.money==null?'-':r.money)+':'+(r.left||0)]))}))}}
@@ -382,7 +429,7 @@ function pushLive(){if(!SYNC)return;clearTimeout(pubT);pubT=setTimeout(publishNo
 async function publishNow(){
   if(pubBusy){pushLive();return}pubBusy=true;
   const core=encCore(),sk=JSON.stringify(core),c=curInfo(),ck=c?c.n+'|'+c.st:'',now=Date.now();
-  const due=sk!==lastSKey||ck!==lastCurKey||(c&&now-lastCurPub>=20000&&c.s!==(REMOTE&&REMOTE.cur?REMOTE.cur.s:-1));
+  const due=sk!==lastSKey||ck!==lastCurKey||(c&&now-lastCurPub>=15000&&c.s!==(REMOTE&&REMOTE.cur?REMOTE.cur.s:-1));
   if(due){if(sk!==lastSKey)S.rev=Math.max(S.rev||0,remoteRev)+1;const msg={v:S.rev||0,t:now,cur:c,...core};
     if(await post(TS,msg)){lastSKey=sk;lastCurKey=ck;lastCurPub=now;remoteRev=Math.max(remoteRev,S.rev||0);REMOTE={...msg};store(KEY,S)}else setTimeout(pushLive,15000)}
   const bc=encBets(),bk=JSON.stringify(bc);
@@ -394,27 +441,31 @@ function upsertBet(m,id){if(S.lockBets||!m||!m.name||!Array.isArray(m.order))ret
   const names=S.players.map(p=>p.n),order=m.order.map(String).filter(n=>names.includes(n)).filter((n,i,a)=>a.indexOf(n)===i);if(order.length<3)return false;
   const name=nrm(m.name).slice(0,24);const i=S.bets.findIndex(x=>nrm(x.name)===name);const b={name,order,ts:m.ts||Date.now()};if(i>=0)S.bets[i]=b;else S.bets.push(b);return true}
 function liveState(cur,t){const st=S.stages.length?stg():null;
-  return{t,status:!S.stages.length?'setup':S.podium?'done':'live',stage:st?st.title:'',board:st?ranked(st).map(x=>({n:x.n,s:x.s})):[],fin:st&&isQual(st)?st.spots:1,
-    up:st&&!S.podium?nextUp(st).slice(0,3):[],podium:S.podium||null,cur:cur&&Date.now()-(cur.t||0)<180000?cur:null,bets:betBoard().map(b=>({n:b.name,t:b.t,c:b.order[0]||''}))}}
-function liveRows(arr,k,byIndex){let rk=0;return '<div class="board">'+arr.map((x,i)=>{if(byIndex||i===0||x.s!==arr[i-1].s)rk=i+1;return `<div class="row${i<k?' q':''}"><span class="rk">${rk}</span><span class="nm">${esc(x.n)}${x.c!=null?`<small>אלוף: ${esc(x.c)}</small>`:''}</span><span></span><span class="sc">${x.s}</span></div>`}).join('')+'</div>'}
+  return{t,status:!S.stages.length?'setup':S.podium?'done':'live',stage:st?st.title:'',board:st?ranked(st).map(x=>({n:x.n,s:x.s,mk:made(x.r),si:S.stages.length-1})):[],fin:st&&isQual(st)?st.spots:1,qual:S.stages.length>1?ranked(S.stages[0]).map(x=>({n:x.n,s:x.s,mk:made(x.r),si:0})):[],
+    up:st&&!S.podium?nextUp(st).slice(0,3):[],podium:S.podium?S.podium.map(x=>{const f=S.stages.findIndex(g=>g.kind==='f');return{...x,si:f,mk:f>=0&&S.stages[f].res[x.n]?made(S.stages[f].res[x.n]):null}}):null,cur:cur&&Date.now()-(cur.t||0)<180000?cur:null,bets:betBoard().map(b=>({n:b.name,t:b.t,c:b.order[0]||''}))}}
+function liveRows(arr,k,byIndex){let rk=0;return '<div class="board">'+arr.map((x,i)=>{if(byIndex||i===0||x.s!==arr[i-1].s)rk=i+1;const tag=x.si!=null&&x.si>=0?'button':'div';
+  return `<${tag} class="row${i<k?' q':''}"${tag==='button'?` data-d="${x.si}|${esc(x.n)}"`:''}><span class="rk">${rk}</span><span class="nm">${esc(x.n)}${x.c!=null?`<small>אלוף: ${esc(x.c)}</small>`:''}${x.mk!=null?`<small>קלע ${x.mk} מ־27</small>`:''}</span><span></span><span class="sc">${x.s}</span></${tag}>`}).join('')+'</div>'}
 function liveView(d){
   const betLink=!S.lockBets&&!(d&&d.status==='done')?`<div class="acts"><a class="btn" href="${FORM_URL}" target="_blank" rel="noopener">רוצים להמר? לטופס ההימורים</a></div>`:'';
   if(!d)return '<h1>לייב</h1><p class="empty card">מתחבר לתחרות…</p>'+betLink;
   const bets=d.bets.length?`<h2>מובילים בהימורים</h2>`+liveRows(d.bets.map(b=>({n:b.n,s:b.t,c:b.c})),d.bets[0].t>0?1:0):'';
   if(d.status==='setup')return '<h1>לייב</h1><p class="empty card">התחרות עוד לא התחילה. הדף יתעדכן לבד.</p>'+betLink+bets;
   let h=`<h1>${d.status==='done'&&d.podium?esc(d.podium[0].n)+' אלוף השלשות':esc(d.stage)}</h1><p class="sub"><span class="livedot"></span>לייב${d.t?` · עודכן ב־${new Date(d.t).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}`:''}</p>`;
-  if(d.status!=='done'){if(d.cur)h+=`<section class="card deck"><div class="lbl">${d.cur.st==='run'?'זורק עכשיו':d.cur.st==='over'?'סיים את הסיבוב':'מתכונן לזרוק'}</div><div class="who">${esc(d.cur.n)}</div><div class="who" style="color:var(--ball)">${d.cur.s}</div></section>`;
+  if(d.status!=='done'){if(d.cur)h+=`<section class="card deck"><div class="lbl">${d.cur.st==='run'?'זורק עכשיו':d.cur.st==='over'?'סיים את הסיבוב':'מתכונן לזרוק'}</div><div class="who">${esc(d.cur.n)}</div><div class="who" style="color:var(--ball)">${d.cur.s}</div>${d.cur.b?`<div class="then">קלע ${made(curRack(d.cur))} מתוך ${d.cur.b.replace(/-/g,'').length} זריקות</div><div class="court" style="background:var(--bg);border-radius:14px;padding:6px;margin-top:8px">${courtSVG(curRack(d.cur))}</div>`:''}</section>`;
     else if(d.up.length)h+=`<section class="card deck"><div class="lbl">על הקו</div><div class="who">${esc(d.up[0])}</div>${d.up[1]?`<div class="then">אחריו: ${d.up.slice(1).map(esc).join(' · ')}</div>`:''}</section>`}
   h+=d.status==='done'&&d.podium?`<h2>הגמר</h2>`+liveRows(d.podium,1,true):`<h2>טבלה</h2>`+(d.board.length?liveRows(d.board,d.fin):'<p class="empty">עוד אין תוצאות</p>');
-  return h+bets+betLink}
+  if(d.qual&&d.qual.length)h+=`<details><summary>תוצאות המוקדמות</summary>${liveRows(d.qual,0)}</details>`;
+  return h+`<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>`+bets+betLink}
 function viewerMode(){
-  $('#tabs').hidden=true;const v=$('#view');S={...fresh(),bets:[],lockBets:false};let st=null,cur=null,t=0;
-  const draw=()=>{v.innerHTML=liveView(st?liveState(cur,t):null)};draw();
-  const onS=d=>{if(!d||!d.p)return;if((d.v||0)<(st&&st.v||0))return;st=d;cur=d.cur;t=d.t;const b={bets:S.bets,lockBets:S.lockBets};S={...decS(d),...b,tab:'game'};draw()};
-  const onB=d=>{if(!d||!d.n)return;S.bets=decBets(d);S.lockBets=!!d.lk;draw()};
-  const pull=async()=>{const[a,b]=await Promise.all([latest(TS),latest(TB)]);if(b)onB(b);if(a)onS(a);if(!a)v.innerHTML=liveView(liveState(null,0)).replace('התחרות עוד לא התחילה. הדף יתעדכן לבד.','התחרות עוד לא התחילה. הדף יתעדכן לבד.')};
+  RO=true;const betFirst=!/live\.html$/.test(location.pathname)||location.hash==='#bet';S={...fresh(),bets:[],lockBets:false,tab:betFirst?'mybet':'game'};
+  document.querySelectorAll('#tabs button[data-t=players],#tabs button[data-t=season]').forEach(b=>b.hidden=true);$('#tabs button[data-t=mybet]').hidden=false;
+  $('#view').innerHTML='<h1>לייב</h1><p class="empty card">מתחבר לתחרות…</p>';let sv=-1;
+  const onS=d=>{if(!d||!d.p||(d.v||0)<sv)return;sv=d.v||0;VCUR=d.cur;VT=d.t;const keep={bets:S.bets,lockBets:S.lockBets,tab:S.tab};S={...fresh(),...decS(d),...keep};if($('#modal').hidden&&S.tab!=='mybet')render()};
+  const onB=d=>{if(!d||!d.n)return;const was=S.lockBets;S.bets=decBets(d);S.lockBets=!!d.lk;if(S.lockBets&&S.tab==='mybet'&&!TABSET)S.tab='game';if($('#modal').hidden&&(S.tab!=='mybet'||was!==S.lockBets))render()};
+  const pull=async()=>{const[a,b]=await Promise.all([latest(TS),latest(TB)]);if(b)onB(b);if(a)onS(a);render()};
   pull();listen([TS,TB],(tp,d)=>tp===TS?onS(d):onB(d));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});setInterval(()=>{if(cur)draw()},30000)}
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});
+  setInterval(()=>{if(VCUR&&$('#modal').hidden&&S.tab!=='mybet')render()},30000)}
 async function managerSync(){
   SYNC=true;
   const[a,b]=await Promise.all([latest(TS),latest(TB)]);
@@ -430,7 +481,7 @@ async function managerSync(){
 function detail(si,n){
   const st=S.stages[si],r=st.res[n];if(!r)return;
   const rows=[0,1,2,3,4].map(s=>{const bb=r.balls.slice(s*5,s*5+5),pts=bb.reduce((t,b,j)=>t+(b?val(r.money,s*5+j):0),0);return `<div><span>עמדה ${s+1}${r.money===s?' (כסף)':''}</span><span class="dots">${bb.map((b,j)=>`<i class="d${b?' y':''}${val(r.money,s*5+j)===2?' m':''}"></i>`).join('')}</span><b>${pts}</b></div>`}).join('');
-  const canRedo=si===S.stages.length-1&&!S.podium;
+  const canRedo=SYNC&&si===S.stages.length-1&&!S.podium;
   modal(`<h3>${esc(n)} · ${r.s}</h3><div class="brk">${rows}<div><span>שלושת רבע</span><b>${r.b3?3:0}</b></div><div><span>חצי מגרש</span><b>${r.b5?5:0}</b></div></div><p class="wait">${st.title} · רצף ארוך: ${streakMax(r.balls)}${r.left?` · סיים עם ${r.left} שניות בשעון`:''}</p>`,
     [{t:'סגור'}].concat(canRedo?[{t:'מחק וזרוק מחדש',f:()=>confirmBox(`למחוק את התוצאה של ${esc(n)}?`,()=>{delete st.res[n];st.order=[n].concat(st.order.filter(x=>x!==n));render()})}]:[]))}
 function confirmBox(t,f){modal(`<h3>בטוח?</h3><p>${t}</p>`,[{t:'ביטול'},{t:'כן',c:'pri',f}])}
@@ -481,7 +532,7 @@ function upd(){
   $('#bSave').textContent=R.state==='over'?'שמור תוצאה':'סיים עכשיו';$('#bSave').disabled=R.state==='cd';$('#bUndo').disabled=!R.hist.length}
 
 /* ---------- events ---------- */
-$('#tabs').onclick=e=>{const b=e.target.closest('[data-t]');if(b){S.tab=b.dataset.t;render();scrollTo(0,0)}};
+$('#tabs').onclick=e=>{const b=e.target.closest('[data-t]');if(b){S.tab=b.dataset.t;TABSET=true;render();scrollTo(0,0)}};
 $('#modal').onclick=e=>{if(e.target.id==='modal')closeM()};
 $('#bMake').onclick=()=>shot(1);$('#bMiss').onclick=()=>shot(0);$('#bUndo').onclick=undo;
 $('#shBonus').onclick=e=>{const b=e.target.closest('[data-b]');if(b)bonus(b.dataset.b,+b.dataset.v)};
@@ -497,6 +548,14 @@ $('#view').addEventListener('click',e=>{
   else if(id==='reset')confirmBox('כל תוצאות הערב יימחקו. ההימורים נשארים.',()=>{S=fresh(S,true);render()});
   else if(id==='again')confirmBox('לפתוח תחרות חדשה? הערב הזה כבר שמור בטבלת העונה, וההימורים יימחקו.',()=>{S=fresh(S);render()});
   else if(id==='goBets'){S.tab='bets';render();scrollTo(0,0)}
+  else if(id==='toBet'){S.tab='mybet';TABSET=true;render();scrollTo(0,0)}
+  else if(id==='sendB')sendBet();
+  else if(id==='rnd'){const r=shuffle(S.players.map(p=>p.n).filter(n=>!PICK.includes(n)));PICK=PICK.concat(r);svDraft();render()}
+  else if(id==='clr'){PICK=[];svDraft();render()}
+  else if(t.dataset.add!=null){if(!PICK.includes(t.dataset.add))PICK.push(t.dataset.add);svDraft();render()}
+  else if(t.dataset.up!=null){const i=+t.dataset.up;[PICK[i-1],PICK[i]]=[PICK[i],PICK[i-1]];svDraft();render()}
+  else if(t.dataset.dn!=null){const i=+t.dataset.dn;[PICK[i+1],PICK[i]]=[PICK[i],PICK[i+1]];svDraft();render()}
+  else if(t.dataset.x!=null){PICK.splice(+t.dataset.x,1);svDraft();render()}
   else if(id==='formCp')copy(FORM_URL);
   else if(id==='viewCp')copy(VIEW_URL);
   else if(id==='bkCopy')copy(backupText());
@@ -520,6 +579,7 @@ $('#view').addEventListener('click',e=>{
   else if(t.dataset.del!=null){const i=+t.dataset.del;confirmBox(`למחוק את הערב מ־${esc(season[i].d)}?`,()=>{season.splice(i,1);store(SKEY,season);render()})}
 });
 $('#sheet').addEventListener('click',e=>{const b=e.target.closest('[data-i]');const ta=document.getElementById('restT');if(b&&ta&&b.textContent==='שחזר'){try{const d=JSON.parse(ta.value);if(!Array.isArray(d))throw 0;const ids=new Set(season.map(x=>x.id));d.forEach(x=>{if(x&&x.id&&Array.isArray(x.rounds)&&!ids.has(x.id))season.push(x)});season.sort((a,b)=>b.id-a.id);store(SKEY,season);render();toast('שוחזר')}catch(err){toast('הטקסט לא נראה כמו גיבוי')}}},true);
+$('#view').addEventListener('input',e=>{if(e.target.id!=='myName')return;MYNAME=e.target.value;svDraft();const sb=$('#sendB');if(sb)sb.disabled=!(PICK.length===S.players.length&&MYNAME.trim())||SENDING;const bn=$('#betNote');if(bn)bn.textContent=betNoteText()});
 $('#view').addEventListener('submit',e=>{e.preventDefault();const i=$('#addn'),n=i.value.trim();if(!n)return;if(S.players.some(p=>p.n===n)){toast('השם כבר ברשימה');return}S.players.push({n,on:true});render();$('#addn').focus()});
 $('#view').addEventListener('change',e=>{const id=e.target.id,v=+e.target.value;if(id==='cSec'&&v>=20&&v<=300)S.cfg.sec=Math.round(v);if(id==='cEv')S.cfg.every=v;if(id==='cFin'&&v>=1&&v<=8)S.cfg.fin=Math.round(v);save()});
 render();
