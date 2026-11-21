@@ -160,7 +160,7 @@ div.row{background:var(--card);box-shadow:inset 0 0 0 1.5px var(--line)}
 <body>
 <header class="top">
   <div class="brand"><svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="13" fill="#f2681c" stroke="#7a2e05" stroke-width="2"/><path d="M2 15h26M15 2v26M6 6c5 4 5 14 0 18M24 6c-5 4-5 14 0 18" fill="none" stroke="#7a2e05" stroke-width="1.6"/></svg><b>שלשות</b><span>תחרות הליגה של הקבוצה</span></div>
-  <nav id="tabs"><button data-t="mybet" hidden>להמר</button><button data-t="game">תחרות</button><button data-t="bets">הימורים</button><button data-t="players">שחקנים</button><button data-t="season">עונה</button></nav>
+  <nav id="tabs"><button data-t="game">תחרות</button><button data-t="bets">הימורים</button><button data-t="mybet" hidden>להמר</button><button data-t="players">שחקנים</button><button data-t="season">עונה</button></nav>
 </header>
 <main id="view"></main>
 
@@ -247,10 +247,11 @@ function courtSVG(r){
 function render(){if(RO&&!['game','bets','mybet'].includes(S.tab))S.tab='game';document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));const v=$('#view'),keep=$('#betT')?$('#betT').value:'';v.innerHTML=S.tab==='players'?viewPlayers():S.tab==='season'?viewSeason():S.tab==='bets'?viewBets():S.tab==='mybet'?viewMyBet():viewGame();if(keep&&$('#betT'))$('#betT').value=keep;save()}
 function viewGame(){
   if(!S.stages.length){const p=present();
+    if(RO)return `<h1>טבלת הקליעות</h1><p class="sub"><span class="livedot"></span>לייב · ${p.length} משתתפים</p>${roBetLink()}${waitTable(p,'התחרות עוד לא התחילה. הטבלה תתמלא לבד אחרי כל סיבוב.')}<div class="card" style="margin-top:18px"><div class="court">${courtSVG(null)}</div><ul class="rules"><li><b>5</b> עמדות × <b>5</b> כדורים</li><li>כדור אחרון בעמדה = <b>2</b></li><li>שלושת רבע = <b>3</b></li><li>חצי מגרש = <b>5</b></li><li><b>${S.cfg.fin}</b> ראשונים לגמר</li></ul></div>`;
     return `<h1>ערב שלשות</h1><p class="sub">${new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'})} · ${p.length} משתתפים</p>
     <div class="card"><div class="court">${courtSVG(null)}</div><ul class="rules"><li><b>5</b> עמדות × <b>5</b> כדורים</li><li>כדור אחרון בעמדה = <b>2</b></li><li>שלושת רבע = <b>3</b></li><li>חצי מגרש = <b>5</b></li><li><b>${S.cfg.sec}</b> שניות לסיבוב</li><li><b>${S.cfg.fin}</b> ראשונים לגמר</li>${S.cfg.money?'<li>עמדת כסף: כל הכדורים = <b>2</b></li>':''}<li>מקסימום <b>${maxScore(S.cfg.money?0:null)}</b></li></ul></div>
     <h2>סדר הזריקה</h2>${p.length?`<ol class="order" id="ord">${p.map(n=>`<li>${esc(n)}</li>`).join('')}</ol>`:'<p class="empty">אין משתתפים. הוסיפו בלשונית שחקנים.</p>'}
-    ${RO?roBetLink():`<div class="acts"><button id="draw" class="big">הגרל סדר</button><button id="start" class="pri big" ${p.length?'':'disabled'}>התחל תחרות</button></div>`}`}
+    ${RO?roBetLink()+waitTable(p,'התחרות עוד לא התחילה — הטבלה תתמלא אחרי כל סיבוב'):`<div class="acts"><button id="draw" class="big">הגרל סדר</button><button id="start" class="pri big" ${p.length?'':'disabled'}>התחל תחרות</button></div>`}`}
   if(S.podium)return viewChamp();
   const st=stg(),up=nextUp(st),done=Object.keys(st.res).length,r=ranked(st);
   let tgt='';
@@ -262,10 +263,13 @@ function viewGame(){
     ${S.cfg.money?`<div class="then">עמדת הכסף שלו</div><div class="chips" id="mchips">${[0,1,2,3,4].map(i=>`<button data-m="${i}" class="${i===moneyPick?'on':''}">${i+1}</button>`).join('')}</div>`:''}
     ${otherCur()?`<div class="tgt" id="otherBusy">${esc(otherCur().n)} זורק עכשיו — מנהל אחר מנקד (${otherCur().s} נק')</div>`:''}
     <div class="acts"><button class="pri big" id="go" ${otherCur()?'disabled':''}>התחל סיבוב</button><button id="skip">דלג לסוף התור</button></div></section>`;
-  h+=`<h2>טבלה</h2>`+board(st,r)+(up.length>1?`<p class="wait">ממתינים: ${up.slice(1).map(esc).join(' · ')}</p>`:'');
-  if(!isQual(st)||st.kind==='soq')h+=`<details><summary>תוצאות המוקדמות</summary>${board(S.stages[0],ranked(S.stages[0]),true)}</details>`;
+  if(RO){h+=`<h2>טבלת הקליעות — ${st.title}</h2>`+board(st,r)+(up.length?waitTable(up,'',true):'');
+    if(!isQual(st)||st.kind==='soq')h+=`<h2>טבלת הקליעות — מוקדמות</h2>`+board(S.stages[0],ranked(S.stages[0]),true)}
+  else{h+=`<h2>טבלה</h2>`+board(st,r)+(up.length>1?`<p class="wait">ממתינים: ${up.slice(1).map(esc).join(' · ')}</p>`:'');
+  if(!isQual(st)||st.kind==='soq')h+=`<details><summary>תוצאות המוקדמות</summary>${board(S.stages[0],ranked(S.stages[0]),true)}</details>`}
   if(S.bets.length)h+=`<h2>מובילים בהימורים</h2>${betRows(betBoard(),3)}<div class="acts"><button id="goBets">לכל טבלת ההימורים</button></div>`;
   return h+(RO?'<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>':`<div class="acts" style="margin-top:28px"><button id="reset">אפס תחרות</button></div>`)}
+function waitTable(names,note,cont){return (note?`<h2>טבלת הקליעות</h2><p class="wait" style="margin-top:0">${note}</p>`:'')+'<div class="board" style="margin-top:6px">'+names.map(n=>`<div class="row" style="opacity:.7"><span class="rk">–</span><span class="nm">${esc(n)}<small>${VCUR&&VCUR.n===n&&Date.now()-(VCUR.t||0)<180000?'זורק עכשיו':'עוד לא זרק'}</small></span><span></span><span class="sc">–</span></div>`).join('')+'</div>'}
 function roBetLink(){return !S.lockBets&&!S.podium?`<div class="acts"><button class="pri" id="toBet">רוצים להמר? לחצו כאן</button></div>`:''}
 /* ---------- my bet (viewers) ---------- */
 const DK='bets-draft-v1';let PICK=[],MYNAME='',SENT=false,SENDING=false,TABSET=false;
@@ -457,11 +461,11 @@ function liveView(d){
   if(d.qual&&d.qual.length)h+=`<details><summary>תוצאות המוקדמות</summary>${liveRows(d.qual,0)}</details>`;
   return h+`<p class="wait">הקישו על שחקן כדי לראות כמה קלע בכל עמדה.</p>`+bets+betLink}
 function viewerMode(){
-  RO=true;const betFirst=!/live\.html$/.test(location.pathname)||location.hash==='#bet';S={...fresh(),bets:[],lockBets:false,tab:betFirst?'mybet':'game'};
+  RO=true;S={...fresh(),bets:[],lockBets:false,tab:location.hash==='#bet'?'mybet':'game'};$('#tabs button[data-t=game]').textContent='קליעות';
   document.querySelectorAll('#tabs button[data-t=players],#tabs button[data-t=season]').forEach(b=>b.hidden=true);$('#tabs button[data-t=mybet]').hidden=false;
   $('#view').innerHTML='<h1>לייב</h1><p class="empty card">מתחבר לתחרות…</p>';let sv=-1;
   const onS=d=>{if(!d||!d.p||(d.v||0)<sv)return;sv=d.v||0;VCUR=d.cur;VT=d.t;const keep={bets:S.bets,lockBets:S.lockBets,tab:S.tab};S={...fresh(),...decS(d),...keep};if($('#modal').hidden&&S.tab!=='mybet')render()};
-  const onB=d=>{if(!d||!d.n)return;const was=S.lockBets;S.bets=decBets(d);S.lockBets=!!d.lk;if(S.lockBets&&S.tab==='mybet'&&!TABSET)S.tab='game';if($('#modal').hidden&&(S.tab!=='mybet'||was!==S.lockBets))render()};
+  const onB=d=>{if(!d||!d.n)return;const was=S.lockBets;S.bets=decBets(d);S.lockBets=!!d.lk;if($('#modal').hidden&&(S.tab!=='mybet'||was!==S.lockBets))render()};
   const pull=async()=>{const[a,b]=await Promise.all([latest(TS),latest(TB)]);if(b)onB(b);if(a)onS(a);render()};
   pull();listen([TS,TB],(tp,d)=>tp===TS?onS(d):onB(d));
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});
